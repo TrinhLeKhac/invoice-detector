@@ -1,34 +1,34 @@
 import { useState, useEffect } from 'react';
-import reactLogo from './assets/react.svg';
-import viteLogo from '/vite.svg';
 import './App.css';
 
 function App() {
-  const [accuracy, setAccuracy] = useState(0);
   const [selectedImages, setSelectedImages] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(null);
+  const [base64, setBase64] = useState([]);
 
   useEffect(() => {
-    fetch('api/ml')
-      .then((res) => res.json())
-      .then((data) => {
-        setAccuracy(data.accuracy);
-      });
-  }, []);
+    if (currentIndex !== null) {
+      sendImageToAPI(base64[currentIndex]);
+    }
+  }, [currentIndex]);
 
   const handleImageChange = (event) => {
     const files = event.target.files;
     const images = [];
+    const base64s = [];
+
     for (let i = 0; i < files.length; i++) {
       const reader = new FileReader();
+      reader.readAsDataURL(files[i]);
       reader.onload = (e) => {
         images.push(e.target.result);
+        base64s.push(reader.result);
         if (images.length === files.length) {
           setSelectedImages(images);
           setCurrentIndex(0);
+          setBase64(base64s);
         }
       };
-      reader.readAsDataURL(files[i]);
     }
   };
 
@@ -44,9 +44,25 @@ function App() {
     );
   };
 
+  const sendImageToAPI = (image) => {
+    fetch('api/ml', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ image: image }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log('Response from API:', data);
+      })
+      .catch((error) => {
+        console.error('Error sending image to API:', error);
+      });
+  };
+
   return (
     <>
-      <div className='card'>Output: {accuracy}</div>
       <input
         className='input-btn'
         type='file'
