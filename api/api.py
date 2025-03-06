@@ -1,31 +1,33 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 
-from sklearn import datasets
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
+from utils.image import extract_string_from_image, process_image
+from utils.text import process_output, show_output
 
 app = Flask(__name__)
 
-@app.route('/api/ml')
+@app.route('/api/invoice_detector', method=['POST'])
 def predict():
-    # Load the iris dataset
-    iris = datasets.load_iris()
-    X = iris.data  # Features
-    y = iris.target  # Target variable
+    data = jsonify(request.get_json())
+    base64_encoded_str = data['image']
+    image = convert_from_base64(base64_encoded_str)
 
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    gray, rotated, binary, cropped = process_image(image)
 
-    # Create a K-Nearest Neighbors classifier
-    knn = KNeighborsClassifier(n_neighbors=3)
+    gray_encoded_str = convert_to_base64(gray)
+    rotated_encoded_str = convert_to_base64(rotated)
+    binary_encoded_str = convert_to_base64(binary)
+    cropped_encoded_str = convert_to_base64(cropped)
 
-    # Train the classifier
-    knn.fit(X_train, y_train)
+    ocr_output = extract_string_from_image(cropped)
+    order_info, order_details, order_summary = process_output(ocr_output)
 
-    # Make predictions on the test set
-    y_pred = knn.predict(X_test)
-
-    # Print the accuracy of the model
-    accuracy = knn.score(X_test, y_test)
-
-    return{'accuracy': accuracy}
+    return {
+        'gray': gray_encoded_str,
+        'rotated': rotated_encoded_str,
+        'binary': binary_encoded_str,
+        'cropped': cropped_encoded_str,
+        'output': ocr_output,
+        'order_info': order_info,
+        'order_details': order_details,
+        'order_summary': order_summary 
+    }
