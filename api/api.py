@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
 
-from utils.image import extract_string_from_image, process_image
-from utils.text import process_output, show_output
+from utils.image import extract_information_from_image, process_image
+from utils.text import process_output
 
 app = Flask(__name__)
 
-@app.route('/api/invoice_detector', method=['POST'])
+@app.route('/api/invoice_detector', methods=['POST'])
 def predict():
     data = jsonify(request.get_json())
     base64_encoded_str = data['image']
