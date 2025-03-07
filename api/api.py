@@ -18,16 +18,17 @@ def predict():
     binary_encoded_str = convert_to_base64(binary)
     cropped_encoded_str = convert_to_base64(cropped)
 
-    ocr_output = extract_string_from_image(cropped)
-    order_info, order_details, order_summary = process_output(ocr_output)
-
+    invoice_information = extract_string_from_image(cropped)
+    profile_info, order_details, order_summary = process_output(invoice_information)
+    
     return {
+        'original': image,
         'gray': gray_encoded_str,
         'rotated': rotated_encoded_str,
         'binary': binary_encoded_str,
         'cropped': cropped_encoded_str,
-        'output': ocr_output,
-        'order_info': order_info,
+        'invoice_information': invoice_information,
+        'profile': profile_info,
         'order_details': order_details,
-        'order_summary': order_summary 
+        'order_summary': order_summary,
     }

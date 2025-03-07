@@ -1,7 +1,5 @@
 import re
 from unidecode import unidecode
-from tabulate import tabulate
-from ocr_correction import OCR_CORRECTION
 
 
 def process_text(input_text):
@@ -23,7 +21,7 @@ def process_text(input_text):
         return ""  
 
 
-def process_output(ocr_output):
+def process_output_old(ocr_output):
 
     try:
         order_info = []
@@ -84,19 +82,67 @@ def process_output(ocr_output):
         return [], [], []
 
 
-def show_output(order_info, order_details, order_summary):
+def process_output(ocr_output):
 
-    try:
-        print("=== Part 1: Order Information ===\n")
-        print("\n".join(order_info))
+    profile_info = {
+        "shop_name": "",
+        "hotline": [],
+        "employee_name": "",
+        "customer_name": "",
+        "customer_phone": "",
+        "address": "",
+        "region": "",
+        "shipping_time": "",
+    }
+    order_details = {
+        "product_name": [],
+        "unit_price": [],
+        "quantity": [],
+    }
+    order_summary = {
+        "total_quantity": 0,
+        "total_amount": 0,
+        "discount": 0,
+        "monetary": 0,
+    }
+    
+    address_pattern = r"dia chi:\s*(.*?)\s*khu vuc:"
+    # re.DOTALL to match multiple lines
+    address_match = re.search(address_pattern, ocr_output, re.DOTALL)
+    if address_match:
+        profile_info["address"] = address_match.group(1).strip()
+        ocr_output = re.sub(rf"{profile_info["address"]}", "", ocr_output).strip()
 
-        print("\n=== Part 2: Order Details ===\n")
-        if order_details:
-            headers = order_details[0]
-            details = order_details[1:]
-            print(tabulate(details, headers=headers, tablefmt="grid"))
+    lines = ocr_output.split("\n")
+    for line in lines:
+        line = process_text(line)
+        # Remove empty lines
+        if not line:
+            continue
+    # ocr_output = "\n".join(lines)
+    
+    for line in lines:
+        if line.startswith("shop"):
+            profile_info["shop_name"] = re.sub(rf"\bshop\b", "", line).strip()
 
-        print("\n=== Part 3: Invoice Totals ===\n")
-        print("\n".join(order_summary))
-    except Exception as e:
-        print(f"Error displaying output: {e}")
+        if line.startswith("hotline"):
+            profile_info["hotline"] = re.sub(rf"\bhotline:\b", "", line).strip()
+
+        if line.startswith("nhan vien ban hang"):
+            profile_info["employee_name"] = re.sub(rf"\bnhan vien ban hang:\b", "", line).strip()
+
+        if "sdt" in line:
+            phone_pattern = r"\b\d{3}[-\s]?\d{3}[-\s]?\d{4}\b"
+            phone_match = re.search(phone_pattern, line)
+            if phone_match:
+                profile_info["customer_phone"] = phone_match.group()
+            tmp_line = re.sub(rf"\bsdt:\b", "", line).strip()    
+            profile_info["customer_name"] = re.sub(rf"{profile_info["customer_phone"]}", "", tmp_line).strip()
+        
+        if line.startswith("khu vuc"):
+            profile_info["region"] = re.sub(rf"\b=khu vuc:\b", "", line).strip()
+
+        if line.startswith("thoi gian ban hang"):
+            profile_info["employee_name"] = re.sub(rf"\bthoi gian giao hang:\b", "", line).strip()
+        
+    return profile_info, order_details, order_summary

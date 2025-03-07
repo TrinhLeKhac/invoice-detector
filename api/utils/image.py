@@ -59,12 +59,16 @@ def rms_flat(arr):
 def get_rotate_angle(image):
     """Calculate the angle of rotation required to deskew an image."""
     try:
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        image_array = np.array(gray, dtype=np.float32)
+        # Ensure grayscale conversion is only done if needed
+        if len(image.shape) == 2:  # Image is already grayscale
+            gray = image
+        else:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        image_array = np.array(gray, dtype=np.uint8)
 
         # Demean the image
-        image_array -= mean(image_array)
+        image_array = image_array - mean(image_array)
 
         # Perform Radon transform
         sinogram = radon(image_array)
@@ -73,9 +77,10 @@ def get_rotate_angle(image):
         rotation_arr = np.array([rms_flat(line) for line in sinogram.T])
         rotation = argmax(rotation_arr)
 
-        angle = 90 - rotation if rotation > 0 else 0
+        # Convert to int
+        angle = int(90 - rotation) if rotation > 0 else 0  
 
-        print(f'Rotation: {angle:.2f} degrees')
+        # print(f'Rotation: {angle:.2f} degrees')
         return angle
     except Exception as e:
         print(f"Error calculating rotation angle: {e}")
@@ -144,7 +149,7 @@ def process_image(image):
         return None, None, None  
 
 
-def extract_string_from_image(image, config="--psm 6", lang="vie"):
+def extract_information_from_image(image, config="--psm 6", lang="vie"):
     """Extracts text from an image using Tesseract OCR."""
     try:
         # Open image
@@ -158,3 +163,12 @@ def extract_string_from_image(image, config="--psm 6", lang="vie"):
         print(f"Error extracting text from image: {e}")
         # Return an empty string if an error occurs
         return ""  
+
+
+def show_image(show_str, image):
+    # Show the image
+    cv2.imshow(show_str, image)
+
+    # Wait for a key press and close the window
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
