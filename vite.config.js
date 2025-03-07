@@ -6,10 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api/ml': {
+      '/api/invoice_detector': {
         target: 'http://127.0.0.1:5000', // Backend URL
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ml/, '/api/ml'),
+        rewrite: (path) =>
+          path.replace(/^\/api\/invoice_detector/, '/api/invoice_detector'),
       },
     },
   },

@@ -45,7 +45,7 @@ function App() {
   };
 
   const sendImageToAPI = (image) => {
-    fetch('api/ml', {
+    fetch('api/invoice_detector', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
