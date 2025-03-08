@@ -86,7 +86,7 @@ def process_output(ocr_output):
 
     profile_info = {
         "shop_name": "",
-        "hotline": [],
+        "hotline": ["123", "234"],
         "employee_name": "",
         "customer_name": "",
         "customer_phone": "",
@@ -95,15 +95,32 @@ def process_output(ocr_output):
         "shipping_time": "",
     }
     order_details = {
-        "product_name": [],
-        "unit_price": [],
-        "quantity": [],
+        [
+            {
+                "product_name": "Product A",
+                "unit_price": 1000,
+                "quantity": 1,
+                "total_price": 1000,
+            },
+            {
+                "product_name": "Product B",
+                "unit_price": 1000,
+                "quantity": 2,
+                "total_price": 2000,
+            },
+            {
+                "product_name": "Product C",
+                "unit_price": 10000,
+                "quantity": 3,
+                "total_price": 30000,
+            },
+        ]
     }
     order_summary = {
-        "total_quantity": 0,
-        "total_amount": 0,
-        "discount": 0,
-        "monetary": 0,
+        "total_quantity": 6,
+        "total_amount": 33000,
+        "discount": 0.33,
+        "monetary": 22000,
     }
     
     address_pattern = r"dia chi:\s*(.*?)\s*khu vuc:"
