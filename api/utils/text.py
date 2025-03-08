@@ -99,13 +99,16 @@ def normalize_datetime(text):
         if len(time_part) == 5:
             time_part += ":00"
 
-        # Convert to datetime object
         datetime_str = f"{date_part} {time_part}"
-        try:
-            dt_obj = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
-            return dt_obj.strftime("%d/%m/%Y %H:%M:%S")
-        except ValueError:
-            return f"Invalid format: {datetime_str}"
+        
+        # Convert to datetime object
+        # try:
+        #     dt_obj = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
+        #     return dt_obj.strftime("%d/%m/%Y %H:%M:%S")
+        # except ValueError:
+        #     return f"Invalid format: {datetime_str}"
+
+        return datetime_str
     return ""
 
 
@@ -132,6 +135,7 @@ def process_output(ocr_output):
 
     # Define default information
     profile_info = {
+        "created_time": "",
         "shop_name": "",
         "hotline": [],
         "employee_name": "",
@@ -177,8 +181,7 @@ def process_output(ocr_output):
     # Extract information
     created_time = extract_information(target, no_accent_target, CREATED_TIME_NO_ACCENT_PATTERN)
     created_time = normalize_datetime(created_time)
-    # profile_info["created_time"] = created_time
-    # print(created_time)
+    profile_info["created_time"] = created_time
     
     shop_name = extract_information(target, no_accent_target, SHOP_NAME_NO_ACCENT_PATTERN)
     shop_name = extract_name(shop_name)
