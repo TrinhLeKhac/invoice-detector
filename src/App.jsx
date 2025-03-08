@@ -56,11 +56,10 @@ function App() {
       .then((res) => res.json())
       .then((data) => {
         setresponse(data);
-        // setresponse({ ...data, invoice_information: 'test\n 123456\n' });
-        // console.log({ ...data, invoice_information: 'test\n 123456\n' });
       })
       .catch((error) => {
         console.error('Error sending image to API:', error);
+        setresponse(null);
       });
   };
 
@@ -124,6 +123,10 @@ function App() {
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <td>Thời gian xuất hoá đơn</td>
+                <td>{response.profile.created_time}</td>
+              </tr>
               <tr>
                 <td>Shop</td>
                 <td>{response.profile.shop_name}</td>
