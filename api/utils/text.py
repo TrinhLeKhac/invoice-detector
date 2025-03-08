@@ -94,8 +94,7 @@ def process_output(ocr_output):
         "region": "",
         "shipping_time": "",
     }
-    order_details = {
-        [
+    order_details = [
             {
                 "product_name": "Product A",
                 "unit_price": 1000,
@@ -115,7 +114,6 @@ def process_output(ocr_output):
                 "total_price": 30000,
             },
         ]
-    }
     order_summary = {
         "total_quantity": 6,
         "total_amount": 33000,
