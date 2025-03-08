@@ -317,10 +317,124 @@ def clean_full_address(text: str) -> str:
     text = clean_digit_district(text)
     text = clean_digit_ward(text)
     text = clean_dash_address(text, DICT_NORM_CITY_DASH)
-    text = remove_punctuation(text)
+    text = remove_punctuation(text, ADDRESS_PUNCTUATIONS)
     text = add_space_separator(text)
 
     text = clean_digit_district(text)
     text = clean_digit_ward(text)
 
     return text
+
+
+def parse_address(input_address, db_provinces, db_districts, db_wards, special_ending):
+    
+    # Preprocess the address
+    address = clean_full_address(input_address) + ','
+
+    founded_province = ""
+    founded_district = ""
+    founded_ward = ""
+
+    choose_word = ""
+    largest_index = -1
+
+    # Extract Province/City
+    for province, province_data in db_provinces.items():
+        for word in province_data['words']:
+            # Select the closest component (province, district, ward) from the right of the address
+            last_index = address.rfind(word)
+            # If two components have the same index, prioritize the longer string
+            if (
+                (last_index > largest_index) or 
+                (
+                    (last_index == largest_index) and 
+                    (largest_index > -1) and 
+                    (len(word) > len(choose_word))
+                )
+            ):
+                founded_province = province
+                choose_word = word
+                largest_index = last_index
+
+    # If a Province/City is found, remove it from the address (only the last occurrence)
+    if founded_province:
+        address = replace_last_occurrences(address, choose_word, "")
+    
+    if address.endswith("Thanh Pho ,"):
+        address = address.replace("Thanh Pho ,", "")
+
+    choose_word = ""
+    largest_index = -1
+
+    # Extract District after extracting Province/City
+    if founded_province:
+        for district in db_provinces[founded_province]['district']:
+            for word in db_districts[district]['words']:
+                reg_word = re.compile(fr"{word}{special_ending}")
+                last_index = last_index_of_regex(address, reg_word)
+                if (
+                    (last_index > largest_index) or 
+                    (
+                        (last_index == largest_index) and 
+                        (largest_index > -1) and 
+                        (len(word) > len(choose_word))
+                    )
+                ):
+                    founded_district = district
+                    choose_word = word
+                    largest_index = last_index
+    else:
+        # Extract District when Province/City is not present in the address 
+        # (Inferring Province/City from the District)
+        for district, district_data in db_districts.items():
+            for word in district_data['words']:
+                reg_word = re.compile(fr"{word}")
+                last_index = last_index_of_regex(address, reg_word)
+                if (
+                    (last_index > largest_index) or 
+                    (
+                        (last_index == largest_index) and 
+                        (largest_index > -1) and 
+                        (len(word) > len(choose_word))
+                    )
+                ):
+                    founded_district = district
+                    choose_word = word
+                    largest_index = last_index
+
+    if founded_district:
+        address = replace_last_occurrences(address, choose_word, "")
+        if not founded_province:
+            province_id = db_districts[founded_district]['province']
+            founded_province = next((key for key, value in db_provinces.items() if value['id'] == province_id), "")
+
+    largest_index = -1
+    choose_word = ""
+
+    # Extract Ward/Commune
+    if founded_district:
+        for ward in db_districts[founded_district]['ward']:
+            for word in db_wards[ward]['words']:
+                reg_word = re.compile(fr"{word}{special_ending}")
+                last_index = last_index_of_regex(address, reg_word)
+                if (
+                    (last_index > largest_index) or 
+                    (
+                        (last_index == largest_index) and 
+                        (largest_index > -1) and 
+                        (len(word) > len(choose_word))
+                    )
+                ):
+                    founded_ward = ward
+                    choose_word = word
+                    largest_index = last_index
+        if founded_ward:
+            address = replace_last_occurrences(address, choose_word, "")
+
+    # Map results to Province, District, and Ward names
+    founded_province = db_provinces.get(founded_province, {}).get('name', "")
+    founded_district = db_districts.get(founded_district, {}).get('name', "")
+    founded_ward = db_wards.get(founded_ward, {}).get('name', "")
+
+    modified_address = address + " " + founded_ward + ", " + founded_district + ", " + founded_province
+    return modified_address

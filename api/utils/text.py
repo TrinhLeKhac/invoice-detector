@@ -2,6 +2,15 @@ import re
 from unidecode import unidecode
 from datetime import datetime
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from utils.address import *
+from utils.data.province import PROVINCE_DICTIONARY
+from utils.data.district import DISTRICT_DICTIONARY
+from utils.data.ward import WARD_DICTIONARY
+
 # Regex patterns to extract information
 CREATED_TIME_NO_ACCENT_PATTERN = r"(?:hoa don ban hang)\s*:?\s*([\d/\s:]+)\s*\.*\s*(?:shop)\s*:?"
 SHOP_NAME_NO_ACCENT_PATTERN = r"(?:shop)\s*:?\s*(.*?)\s*\.*\s*(?:hot line)\s*:?"
@@ -205,6 +214,7 @@ def process_output(ocr_output):
     
     address = extract_information(target, no_accent_target, ADDRESS_NO_ACCENT_PATTERN)
     address = extract_address(address)
+    address = parse_address(address, PROVINCE_DICTIONARY, DISTRICT_DICTIONARY, WARD_DICTIONARY, SPECIAL_ENDING)
     profile_info["address"] = address
 
     region = extract_information(target, no_accent_target, REGION_NO_ACCENT_PATTERN)
