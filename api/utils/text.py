@@ -1,92 +1,83 @@
 import re
 from unidecode import unidecode
 
+# regext extract information
+SHOP_NAME_NO_ACCENT_PATTERN = r"(?:shop)\s*(.*?)\s*\.*\s*(?:hot line)\s*:?"
+HOTLINE_NO_ACCENT_PATTERN = r"(?:hot line)\s*:?\s*(.*?)\s*\.*\s*(?:nhan vien ban hang)\s*:?"
+EMPLOYEE_NAME_NO_ACCENT_PATTERN = r"(?:nhan vien ban hang)\s*:?\s*(.*?)\s*\.*\s*(?:khach hang)\s*:?"
+CUSTOMER_NAME_NO_ACCENT_PATTERN = r"(?:khach hang)\s*:?\s*(.*?)\s*\.*\s*(?:sdt)\s*:?"
+CUSTOMER_PHONE_NO_ACCENT_PATTERN = r"(?:sdt)\s*:?\s*(.*?)\s*\.*\s*(?:dia chi)\s*:?"
+ADDRESS_NO_ACCENT_PATTERN = r"(?:dia chi)\s*:?\s*(.*?)\s*\.*\s*(?:khu vuc)\s*:?"
+REGION_NO_ACCENT_PATTERN = r"(?:khu vuc)\s*:?\s*(.*?)\s*\.*\s*(?:thoi gian giao hang)\s*:?"
+SHIPPING_TIME_NO_ACCENT_PATTERN = r"(?:thoi gian giao hang)\s*:?\s*(.*?)\s*\.*\s*(?:ten)\s*:?"
 
-def process_text(input_text):
-    """Cleans and normalizes the input text."""
-    try:
-        # Remove leading and trailing whitespaces
-        text = input_text.strip()
-
-        # Replace multiple spaces with a single space
-        cleaned_text = re.sub(r"\s+", " ", text)
-
-        # Convert text to lowercase and remove accents
-        final_text = unidecode(cleaned_text.lower())
-
-        return final_text
-    except Exception as e:
-        print(f"Error processing text: {e}")
-        # Return an empty string if an error occurs
-        return ""  
+TOTAL_QUANTITY_NO_ACCENT_PATTERN = r"tong so luong\s*:?\s*([\d,\.]+)"
+TOTAL_AMOUNT_NO_ACCENT_PATTERN = r"tong tien hang\s*:?\s*([\d,\.]+)"
+DISCOUNT_NO_ACCENT_PATTERN = r"chiet khau hoa don\s*:?\s*([\d,\.]+)"
+MONETARY_NO_ACCENT_PATTERN = r"tong cong\s*:?\s*([\d,\.]+)"
 
 
-def process_output_old(ocr_output):
+def extract_information(target, no_accent_target, pattern):    
+    match = re.search(pattern, no_accent_target, re.IGNORECASE)
+    
+    if match:
+        start_idx = match.start(1)
+        end_idx = match.end(1)
+        information = target[start_idx:end_idx]
+        
+        # remain = re.sub(re.escape(information), "", target).strip()
+        # no_accent_remain = re.sub(re.escape(unidecode(information)), "", no_accent_target).strip()
+        # assert len(remain) == len(no_accent_remain)
+        
+        return information
+    return ""
 
-    try:
-        order_info = []
-        order_details = []
-        order_summary = []
 
-        lines = ocr_output.split("\n")
+def extract_and_normalize_phone_numbers(text):
+    # Bắt đầu bằng +084, +84 hoặc 0
+    pattern = r"\b(?:\+084|\+84|0)(\d{9})\b"
+    
+    # Lấy danh sách số
+    matches = re.findall(pattern, text)
+    
+    # Thay +84, +084 bằng 0
+    normalized_numbers = ["0" + num for num in matches]  
+    
+    return normalized_numbers
 
-        for line in lines:
 
-            is_summary = True
+def extract_name(text):
+    # Loại bỏ số và ký tự đặc biệt, chỉ giữ lại chữ cái và khoảng trắng
+    cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ\s]", "", text)
+    
+    # Chuẩn hóa khoảng trắng dư thừa
+    cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
+    
+    return cleaned_text
 
-            # Remove empty lines
-            line = line.strip()
-            if not line:
-                continue
 
-            # Logic for detecting order details
-            if "|" in line:
-                order_details.append([col.strip() for col in line.split("|")])
-                continue
+def extract_address(text):
+    # Chỉ giữ lại chữ, số, khoảng trắng, dấu phẩy, dấu / và dấu gạch ngang
+    cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ0-9,\-\/\s]", "", text)
+    
+    # Chuẩn hóa khoảng trắng dư thừa
+    cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
+    
+    return cleaned_text
 
-            # Logic for detecting order information
-            for token in [
-                "hoa don ban hang", "shop", "hot line", "hotline", "nhan vien",
-                "khach hang", "dia chi", "khu vuc", "thoi gian"
-            ]:
-                if process_text(line).startswith(token):
-                    line = OCR_CORRECTION[token] + line[len(token):]
-                    order_info.append(line)
-                    is_summary = False
-                    break
 
-            # Logic for detecting order summary
-            if is_summary:
-                for token in [
-                    "tong so luong",
-                    "tong tien hang",
-                    "chiet khau hoa don",
-                    "chiet kheu hoa don",
-                    "tong cong",
-                    "nguoi ban hang"
-                ]:
-                    if process_text(line).startswith(token):
-                        line = OCR_CORRECTION[token] + line[len(token):]
-                        order_summary.append(line)
-                        break
-                else:
-                    order_summary.append(line)
-
-        print(order_info)
-        print(order_details)
-        print(order_summary)
-
-        return order_info, order_details, order_summary
-    except Exception as e:
-        print(f"Error processing OCR output: {e}")
-        return [], [], []
+def normalize_number(currency_str):
+    # Loại bỏ dấu phẩy hoặc dấu chấm dùng làm phân cách hàng nghìn
+    cleaned_number = re.sub(r"[,.]", "", currency_str)
+    return int(cleaned_number)
 
 
 def process_output(ocr_output):
 
+    # Define default information
     profile_info = {
         "shop_name": "",
-        "hotline": ["123", "234"],
+        "hotline": [],
         "employee_name": "",
         "customer_name": "",
         "customer_phone": "",
@@ -114,51 +105,65 @@ def process_output(ocr_output):
                 "total_price": 30000,
             },
         ]
-        
+
     order_summary = {
-        "total_quantity": 6,
-        "total_amount": 33000,
-        "discount": 0.33,
-        "monetary": 22000,
+        "total_quantity": 0,
+        "total_amount": 0,
+        "discount": 0,
+        "monetary": 0,
     }
+
+    # Normalize OCR output
+    target = re.sub(r"\s+", " ", ocr_output).strip()
+    no_accent_target = unidecode(target)
+    assert len(target) == len(no_accent_target)
+
+    # Extract information
+    shop_name = extract_information(target, no_accent_target, SHOP_NAME_NO_ACCENT_PATTERN)
+    shop_name = extract_name(shop_name)
+    profile_info["shop_name"] = shop_name
+
+    hotline = extract_information(target, no_accent_target, HOTLINE_NO_ACCENT_PATTERN)
+    hotline =  extract_and_normalize_phone_numbers(hotline)
+    profile_info["hotline"] = hotline
+
+    employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_NO_ACCENT_PATTERN)
+    employee_name = extract_name(employee_name)
+    profile_info["employee_name"] = employee_name
+
+    customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_NO_ACCENT_PATTERN)
+    customer_name = extract_name(customer_name)
+    profile_info["customer_name"] = customer_name
+
+    customer_phone = extract_information(target, no_accent_target, CUSTOMER_PHONE_NO_ACCENT_PATTERN)
+    customer_phone =  extract_and_normalize_phone_numbers(customer_phone)[0]
+    profile_info["customer_phone"] = customer_phone
     
-    address_pattern = r"dia chi:\s*(.*?)\s*khu vuc:"
-    # re.DOTALL to match multiple lines
-    address_match = re.search(address_pattern, ocr_output, re.DOTALL)
-    if address_match:
-        profile_info["address"] = address_match.group(1).strip()
-        ocr_output = re.sub(rf"{profile_info["address"]}", "", ocr_output).strip()
+    address = extract_information(target, no_accent_target, ADDRESS_NO_ACCENT_PATTERN)
+    address = extract_address(address)
+    profile_info["address"] = address
 
-    lines = ocr_output.split("\n")
-    for line in lines:
-        line = process_text(line)
-        # Remove empty lines
-        if not line:
-            continue
-    # ocr_output = "\n".join(lines)
+    region = extract_information(target, no_accent_target, REGION_NO_ACCENT_PATTERN)
+    region = extract_name(region)
+    profile_info["region"] = region
+
+    shipping_time = extract_information(target, no_accent_target, SHIPPING_TIME_NO_ACCENT_PATTERN)
+    profile_info["shipping_time"] = shipping_time
+
+    total_quantity = extract_information(target, no_accent_target, TOTAL_QUANTITY_NO_ACCENT_PATTERN)
+    total_quantity =  normalize_number(total_quantity)
+    order_summary["total_quantity"] = total_quantity
+
+    total_amount = extract_information(target, no_accent_target, TOTAL_AMOUNT_NO_ACCENT_PATTERN)
+    total_amount =  normalize_number(total_amount)
+    order_summary["total_amount"] = total_amount
+
+    discount = extract_information(target, no_accent_target, DISCOUNT_NO_ACCENT_PATTERN)
+    discount =  normalize_number(discount)
+    order_summary["discount"] = discount
     
-    for line in lines:
-        if line.startswith("shop"):
-            profile_info["shop_name"] = re.sub(rf"\bshop\b", "", line).strip()
+    monetary = extract_information(target, no_accent_target, MONETARY_NO_ACCENT_PATTERN)
+    monetary =  normalize_number(monetary)
+    order_summary["monetary"] = monetary
 
-        if line.startswith("hotline"):
-            profile_info["hotline"] = re.sub(rf"\bhotline:\b", "", line).strip()
-
-        if line.startswith("nhan vien ban hang"):
-            profile_info["employee_name"] = re.sub(rf"\bnhan vien ban hang:\b", "", line).strip()
-
-        if "sdt" in line:
-            phone_pattern = r"\b\d{3}[-\s]?\d{3}[-\s]?\d{4}\b"
-            phone_match = re.search(phone_pattern, line)
-            if phone_match:
-                profile_info["customer_phone"] = phone_match.group()
-            tmp_line = re.sub(rf"\bsdt:\b", "", line).strip()    
-            profile_info["customer_name"] = re.sub(rf"{profile_info["customer_phone"]}", "", tmp_line).strip()
-        
-        if line.startswith("khu vuc"):
-            profile_info["region"] = re.sub(rf"\b=khu vuc:\b", "", line).strip()
-
-        if line.startswith("thoi gian ban hang"):
-            profile_info["employee_name"] = re.sub(rf"\bthoi gian giao hang:\b", "", line).strip()
-        
     return profile_info, order_details, order_summary
