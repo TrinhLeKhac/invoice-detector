@@ -1,7 +1,10 @@
 import os
+import re
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 import base64
+from io import BytesIO
 from PIL import Image
 from pytesseract import pytesseract
 from skimage.transform import radon
@@ -16,19 +19,30 @@ except ImportError:
     from numpy import argmax
 
 
-def convert_from_base64(base64_str):
+def convert_from_base64(full_base64_string):
     try:
+        match = re.match(r"data:image/(?P<format>png|jpeg|jpg);base64,(?P<data>.+)", full_base64_string)
+    
+        if not match:
+            raise ValueError("Invalid base64 string or wrong format image!")
+
+        # Get format (png, jpeg, jpg)
+        image_format = match.group("format")
+
+        # Get data
+        base64_string = match.group("data")
+
         # Decode base64 to bytes
-        image_data = base64.b64decode(base64_str)
+        image_bytes = base64.b64decode(base64_string)
 
         # Convert bytes to NumPy array
-        nparr = np.frombuffer(image_data, np.uint8)
+        image_nparr = np.frombuffer(image_bytes, np.uint8)
 
         # Decode image using OpenCV
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        image = cv2.imdecode(image_nparr, cv2.IMREAD_COLOR)
 
         if image is None:
-            raise ValueError("Decoded image is None. Possibly invalid base64 data.")
+            raise ValueError("Decoded image is None.")
 
         return image
     except Exception as e:
@@ -39,16 +53,25 @@ def convert_from_base64(base64_str):
 def convert_to_base64(image, format=".jpg"):
     try:
         # Encode image as bytes
-        success, buffer = cv2.imencode(format, image)
+        success, encoded_image = cv2.imencode(format, image)
         if not success:
             raise ValueError("Image encoding failed.")
 
         # Convert to base64 string
-        base64_str = base64.b64encode(buffer).decode("utf-8")
-        return base64_str
+        base64_str = base64.b64encode(encoded_image).decode("utf-8")
+
+        # Determine MIME type based on format
+        format = format.lower().replace(".", "")  # Remove leading dot (".jpg" → "jpg")
+        if format == "jpg":
+            format = "jpeg"  # Convert "jpg" to "jpeg" for correct MIME type
+
+        # Add prefix for Data URI
+        return f"data:image/{format};base64,{base64_str}"
+    
     except Exception as e:
         print(f"Error encoding image to base64: {e}")
         return None
+
 
 
 def rms_flat(arr):
@@ -118,10 +141,10 @@ def process_image(image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # Rotate image
-        rotated = rotate_image(gray)
+        # rotated = rotate_image(gray)
 
         # Convert to binary image
-        _, binary = cv2.threshold(rotated, 180, 255, cv2.THRESH_BINARY)
+        _, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY) # rotated
 
         # Find contours in binary image
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -133,20 +156,20 @@ def process_image(image):
             x, y, w, h = cv2.boundingRect(max_contour)
 
             # Draw bounding box
-            cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 2)
+            cv2.rectangle(gray, (x, y), (x + w, y + h), (0, 0, 255), 2) # rotated
 
             # Crop image
-            cropped = rotated[y:y + h, x:x + w]
+            cropped = gray[y:y + h, x:x + w] # rotated
         else:
             # If no contours, keep the rotated image
-            cropped = rotated  
+            cropped = gray  
 
-        return gray, rotated, binary, cropped
+        return gray, binary, cropped # rotated
 
     except Exception as e:
         print(f"Error processing image: {e}")
         # Return None values if an error occurs
-        return None, None, None  
+        return None, None, None, None  
 
 
 def extract_information_from_image(image, config="--psm 6", lang="vie"):
@@ -166,9 +189,21 @@ def extract_information_from_image(image, config="--psm 6", lang="vie"):
 
 
 def show_image(show_str, image):
-    # Show the image
-    cv2.imshow(show_str, image)
+    try:
+        # Show the image
+        cv2.imshow(show_str, image)
 
-    # Wait for a key press and close the window
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        # Wait for a key press and close the window
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    except Exception as e:
+        print(f"Error processing image: {e}")
+        # If you are running the script on a server 
+        # without a graphical interface (e.g., Linux server, WSL, Docker),
+        # cv2.imshow() will fail
+
+        # Convert from BGR to RGB
+        plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))  
+        plt.title(show_str)
+        plt.axis("off")
+        plt.show()

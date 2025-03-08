@@ -20,7 +20,7 @@ class TestImageProcessing(unittest.TestCase):
     def setUpClass(cls):
 
         # cls.image_path = str(Path(__file__).parent / "data/skew-linedetection.png")
-        cls.image_path = str(Path(__file__).parent / "data/image015.jpg")
+        cls.image_path = str(Path(__file__).parent / "data/image003.jpg")
         cls.image = cv2.imread(cls.image_path)
 
         if cls.image is None:
@@ -28,7 +28,7 @@ class TestImageProcessing(unittest.TestCase):
 
     def test_convert_from_base64(self):
         base64_str = convert_to_base64(self.image)
-        # print(base64_str)
+        print("Base64 string ===>\n", base64_str)
 
         decoded_image = convert_from_base64(base64_str)
         show_image("Original image", self.image)
