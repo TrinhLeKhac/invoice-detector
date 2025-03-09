@@ -7,16 +7,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from pytesseract import pytesseract
-from skimage.transform import radon
 from numpy import mean, argmax
-
-try:
-    from parabolic import parabolic
-
-    def argmax(x):
-        return parabolic(x, np.argmax(x))[0]
-except ImportError:
-    from numpy import argmax
 
 
 def convert_from_base64(full_base64_string):
@@ -73,65 +64,86 @@ def convert_to_base64(image, format=".jpg"):
         return None
 
 
+def get_rotation_angle(image, angle_threshold=15):
+    """
+    Find the skew angle of the image using Hough Line Transform.
+    This method detects straight lines and estimates the median rotation angle.
+    """
+    # Convert image to grayscale if it's not already
+    if len(image.shape) == 2:
+        gray = image
+    else:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Apply edge detection
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
-def rms_flat(arr):
-    """Return the root mean square of all the elements of *a*, flattened out."""
-    return np.sqrt(np.mean(np.abs(arr) ** 2))
+    # Detect lines using Hough Transform
+    lines = cv2.HoughLines(edges, 1, np.pi / 180, 200)
+
+    angles = []
+    if lines is not None:
+        for line in lines:
+            rho, theta = line[0]
+            angle = np.rad2deg(theta) - 90  # Convert radian to degree
+
+            # Filter out extreme angles that might cause incorrect rotations
+            if -angle_threshold < angle < angle_threshold:  
+                angles.append(angle)
+
+    if angles:
+        median_angle = np.median(angles)
+        
+        # Ensure that the angle is not leading to incorrect horizontal rotations
+        if (median_angle < -angle_threshold) or (median_angle > angle_threshold):
+            return 0  # Ignore extreme incorrect angles
+        
+        return median_angle  
+
+    return 0  # Return 0 if no rotation is detected
 
 
-def get_rotate_angle(image):
-    """Calculate the angle of rotation required to deskew an image."""
-    try:
-        # Ensure grayscale conversion is only done if needed
-        if len(image.shape) == 2:  # Image is already grayscale
-            gray = image
-        else:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def rotate_image(image, angle):
+    """
+    Rotate the image by the given angle while keeping the entire content visible.
+    """
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
 
-        image_array = np.array(gray, dtype=np.uint8)
+    # Get the rotation matrix
+    rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
 
-        # Demean the image
-        image_array = image_array - mean(image_array)
+    # Compute the new bounding dimensions
+    cos_theta = np.abs(rotation_matrix[0, 0])
+    sin_theta = np.abs(rotation_matrix[0, 1])
 
-        # Perform Radon transform
-        sinogram = radon(image_array)
+    new_w = int((h * sin_theta) + (w * cos_theta))
+    new_h = int((h * cos_theta) + (w * sin_theta))
 
-        # Find the rotation angle
-        rotation_arr = np.array([rms_flat(line) for line in sinogram.T])
-        rotation = argmax(rotation_arr)
+    # Adjust rotation matrix to take into account translation
+    rotation_matrix[0, 2] += (new_w / 2) - center[0]
+    rotation_matrix[1, 2] += (new_h / 2) - center[1]
 
-        # Convert to int
-        angle = int(90 - rotation) if rotation > 0 else 0  
+    # Perform the rotation
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (new_w, new_h), 
+                                   flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
-        # print(f'Rotation: {angle:.2f} degrees')
-        return angle
-    except Exception as e:
-        print(f"Error calculating rotation angle: {e}")
-        # Default to 0 degrees if an error occurs
-        return 0  
+    return rotated_image
 
 
-def rotate_image(image):
-    """Rotate an image to correct its orientation."""
-    try:
-        # Get rotation angle
-        angle = get_rotate_angle(image)
+def deskew_image(image):
+    """
+    Detect and correct the skew of an image.
+    Ensures that the rotation does not flip the image sideways.
+    """
+    angle = get_rotation_angle(image)  # Detect rotation angle
+    print(angle)
+    if abs(angle) < 0.1:  # If angle is too small, no rotation is needed
+        return image
 
-        # Get image dimensions
-        (h, w) = image.shape[:2]
-        center = (w // 2, h // 2)
+    corrected_image = rotate_image(image, angle)
+    return corrected_image
 
-        # Compute the rotation matrix
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-
-        # Perform the rotation
-        rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-
-        return rotated
-    except Exception as e:
-        print(f"Error rotating image: {e}")
-        # Return original image if an error occurs
-        return image  
 
 
 def process_image(image):
@@ -141,10 +153,10 @@ def process_image(image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # Rotate image
-        # rotated = rotate_image(gray)
+        rotated = deskew_image(gray)
 
         # Convert to binary image
-        _, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY) # rotated
+        _, binary = cv2.threshold(rotated, 180, 255, cv2.THRESH_BINARY)
 
         # Find contours in binary image
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -156,20 +168,20 @@ def process_image(image):
             x, y, w, h = cv2.boundingRect(max_contour)
 
             # Draw bounding box
-            cv2.rectangle(gray, (x, y), (x + w, y + h), (0, 0, 255), 2) # rotated
+            cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
             # Crop image
-            cropped = gray[y:y + h, x:x + w] # rotated
+            cropped = rotated[y:y + h, x:x + w]
         else:
             # If no contours, keep the rotated image
-            cropped = gray  
+            cropped = rotated  
 
-        return gray, binary, cropped # rotated
+        return gray, rotated, cropped # binary
 
     except Exception as e:
         print(f"Error processing image: {e}")
         # Return None values if an error occurs
-        return None, None, None, None  
+        return None, None, None  
 
 
 def extract_information_from_image(image, config="--psm 6", lang="vie"):
