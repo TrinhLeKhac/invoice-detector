@@ -118,15 +118,43 @@ def normalize_number(currency_str):
     # Replace 'O', 'Ô', 'Ơ' (common OCR errors) with '0'
     currency_str = re.sub(r"[OÔƠ]", "0", currency_str, flags=re.IGNORECASE)
 
-    # Remove all non-numeric characters except digits and decimal points
-    cleaned_number = re.sub(r"[^\d.]", "", currency_str)
+    # Remove all non-numeric characters except digits
+    cleaned_number = re.sub(r"[^\d]", "", currency_str)
 
     # Check if it's a valid number format
     try:
-        number = float(cleaned_number) if "." in cleaned_number else int(cleaned_number)
+        number = int(cleaned_number)
         return number
     except ValueError:
-        return -1  # Return -1 for invalid inputs
+        return 0  # Return 0 for invalid inputs
+
+
+def validate_and_fill_amounts(total_amount, discount, monetary):
+    """
+    Validates and fills missing values for total_amount, discount, and monetary 
+    based on the condition: total_amount = discount + monetary.
+
+    Conditions:
+    - total_amount > 0
+    - discount <= total_amount
+    - If discount > total_amount, set discount = total_amount
+    - If any of the three values are missing, compute it using the formula.
+    """
+
+    # Ensure discount is within valid range
+    if discount > total_amount:
+        discount = total_amount - monetary
+    if monetary > total_amount:
+        monetary = total_amount - discount
+
+    if total_amount == 0:
+        total_amount = discount + monetary
+    elif discount == 0:
+        discount = total_amount - monetary
+    elif monetary == 0:
+        monetary = total_amount - discount
+
+    return total_amount, discount, monetary
 
 
 def normalize_datetime(text):
@@ -276,14 +304,16 @@ def process_output(ocr_output):
 
     total_amount = extract_information(target, no_accent_target, TOTAL_AMOUNT_NO_ACCENT_PATTERN)
     total_amount =  normalize_number(total_amount)
-    order_summary["total_amount"] = total_amount
 
     discount = extract_information(target, no_accent_target, DISCOUNT_NO_ACCENT_PATTERN)
     discount =  normalize_number(discount)
-    order_summary["discount"] = discount
     
     monetary = extract_information(target, no_accent_target, MONETARY_NO_ACCENT_PATTERN)
     monetary =  normalize_number(monetary)
+
+    total_amount, discount, monetary = validate_and_fill_amounts(total_amount, discount, monetary)
+    order_summary["total_amount"] = total_amount
+    order_summary["discount"] = discount
     order_summary["monetary"] = monetary
 
     return profile_info, order_details, order_summary
