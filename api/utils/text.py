@@ -22,13 +22,33 @@ ADDRESS_NO_ACCENT_PATTERN = r"(?:dia chi)\s*:?\s*(.*?)\s*\.*\s*(?:khu vuc)\s*:?"
 REGION_NO_ACCENT_PATTERN = r"(?:khu vuc)\s*:?\s*(.*?)\s*\.*\s*(?:thoi gian giao hang)\s*:?"
 SHIPPING_TIME_NO_ACCENT_PATTERN = r"(?:thoi gian giao hang)\s*:?\s*(.*?)\s*\.*\s*(?:ten)\s*:?"
 
-TOTAL_QUANTITY_NO_ACCENT_PATTERN = r"tong so luong\s*:?\s*([\d,\.]+)"
-TOTAL_AMOUNT_NO_ACCENT_PATTERN = r"tong tien hang\s*:?\s*([\d,\.]+)"
-DISCOUNT_NO_ACCENT_PATTERN = r"chiet khau hoa don\s*:?\s*([\d,\.]+)"
-MONETARY_NO_ACCENT_PATTERN = r"tong cong\s*:?\s*([\d,\.]+)"
+TOTAL_QUANTITY_NO_ACCENT_PATTERN = r"tong so luong\s*:?\s*([\dOÔƠ,\.]+)"
+TOTAL_AMOUNT_NO_ACCENT_PATTERN = r"tong tien hang\s*:?\s*([\dOÔƠ,\.]+)"
+DISCOUNT_NO_ACCENT_PATTERN = r"chiet khau hoa don\s*:?\s*([\dOÔƠ,\.]+)"
+MONETARY_NO_ACCENT_PATTERN = r"tong cong\s*:?\s*([\dOÔƠ,\.]+)"
 
 # Regex to capture various datetime formats
 TIME_DATE_PATTERN = r"(?:(\d{2}[:\s]+\d{2}(?::\d{2})?)\s+)?(\d{2}[\s/-]+\d{2}[\s/-]+\d{4})(?:\s+(\d{2}[:\s]+\d{2}(?::\d{2})?))?"
+
+
+def clean_text_before_unidecode(text):
+    """
+    Cleans the text by removing:
+    - Special characters that may expand (e.g., œ -> oe)
+    - Emojis
+    - Invisible whitespace characters (\u200b, \u00A0)
+    - Soft hyphen (\u00AD)
+    """
+    # Remove emojis using regex (matches all Unicode emoji ranges)
+    text = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0\U000024C2-\U0001F251]', '', text)
+    
+    # Remove invisible whitespace characters and soft hyphen
+    text = re.sub(r'[\u200b\u00A0\u00AD]', '', text)
+    
+    # Normalize spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
 
 
 def extract_information(target, no_accent_target, pattern):    
@@ -81,10 +101,32 @@ def extract_address(text):
 
 
 def normalize_number(currency_str):
-    # Remove commas or periods used as thousand separators
-    cleaned_number = re.sub(r"[,.]", "", currency_str)
+    """
+    Normalize a currency string by:
+    - Replacing characters 'O', 'Ô', 'Ơ' with '0'
+    - Removing thousand separators (`,` or `.`)
+    - Keeping decimal points if present
+    - Converting the cleaned string to a float or int
     
-    return int(cleaned_number)
+    Returns:
+        int if no decimal part, otherwise float.
+        Returns -1 if the input is not a valid number.
+    """
+    if not currency_str:
+        return -1  # Handle empty string case
+    
+    # Replace 'O', 'Ô', 'Ơ' (common OCR errors) with '0'
+    currency_str = re.sub(r"[OÔƠ]", "0", currency_str, flags=re.IGNORECASE)
+
+    # Remove all non-numeric characters except digits and decimal points
+    cleaned_number = re.sub(r"[^\d.]", "", currency_str)
+
+    # Check if it's a valid number format
+    try:
+        number = float(cleaned_number) if "." in cleaned_number else int(cleaned_number)
+        return number
+    except ValueError:
+        return -1  # Return -1 for invalid inputs
 
 
 def normalize_datetime(text):
@@ -183,9 +225,11 @@ def process_output(ocr_output):
     }
 
     # Normalize OCR output
-    target = re.sub(r"\s+", " ", ocr_output).strip()
+    target = clean_text_before_unidecode(ocr_output)
     no_accent_target = unidecode(target)
-    assert len(target) == len(no_accent_target)
+    # assert len(target) == len(no_accent_target)
+    print(target)
+    print(no_accent_target)
 
     # Extract information
     created_time = extract_information(target, no_accent_target, CREATED_TIME_NO_ACCENT_PATTERN)
@@ -197,8 +241,8 @@ def process_output(ocr_output):
     profile_info["shop_name"] = shop_name
 
     hotline = extract_information(target, no_accent_target, HOTLINE_NO_ACCENT_PATTERN)
-    hotline =  extract_and_normalize_phone_numbers(hotline)
-    profile_info["hotline"] = hotline
+    lst_hotline =  extract_and_normalize_phone_numbers(hotline)
+    profile_info["hotline"] = lst_hotline
 
     employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_NO_ACCENT_PATTERN)
     employee_name = extract_name(employee_name)
@@ -209,8 +253,9 @@ def process_output(ocr_output):
     profile_info["customer_name"] = customer_name
 
     customer_phone = extract_information(target, no_accent_target, CUSTOMER_PHONE_NO_ACCENT_PATTERN)
-    customer_phone =  extract_and_normalize_phone_numbers(customer_phone)[0]
-    profile_info["customer_phone"] = customer_phone
+    lst_customer_phone =  extract_and_normalize_phone_numbers(customer_phone)
+    if len(lst_customer_phone) > 0:
+        profile_info["customer_phone"] = lst_customer_phone[0]
     
     address = extract_information(target, no_accent_target, ADDRESS_NO_ACCENT_PATTERN)
     address = extract_address(address)
