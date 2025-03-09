@@ -1,4 +1,5 @@
 import unicodedata
+from unidecode import unidecode
 import re
 
 
@@ -32,7 +33,110 @@ DICT_NORM_CITY_DASH = {
 # ADDRESS_PUNCTUATIONS = ["?", "!", ":", "'"]
 ADDRESS_PUNCTUATIONS = ['.', ',', '!', '?', ';', ':', '-', '_', '(', ')', '"', "'"]
 
+CHECK_SPELL_WORDS_NO_ACCENT = [
+    "Ap", "Lang", "Xom", "Thon", "Khu",
+    "Duong", "Hem", "Ngo"
+]
+
+CHECK_SPELL_WORDS = [
+    "Ấp", "Làng", "Xóm", "Thôn", "Khu",
+    "Đường", "Hẻm", "Ngõ"
+]
+
 SPECIAL_ENDING = r"[g.;,\s]"
+
+
+def remove_abundant_part(address: str) -> str:
+    # List of redundant words to be removed
+    redundant_words = [
+        "huyen",
+        "xa",
+        "thi tran",
+        "thi xa",
+        "tinh",
+        "thanh pho",
+        "quan",
+        "phuong",
+        "thi tran",
+        "thi xa",
+        "h",
+        "x",
+        "tt",
+        "tx",
+        "tp",
+        "p", 
+        "q",
+    ]
+    
+    # Create a regex pattern to match redundant words (allowing spaces and punctuation around them)
+    pattern = r'\b(?:' + '|'.join(redundant_words) + r')\b'
+    
+    # Remove redundant parts from the address
+    cleaned_address = re.sub(pattern, '', address, flags=re.IGNORECASE).strip()
+    
+    # Remove consecutive punctuation marks and replace with a single comma
+    cleaned_address = re.sub(r'[\s,:.!?]{2,}', ' ', cleaned_address)
+
+    # Remove extra spaces
+    cleaned_address = re.sub(r'\s+', ' ', cleaned_address).strip()
+
+    return cleaned_address
+
+
+def _matching_and_find_substring(target: str, no_accent_target: str, pattern: str) -> str:
+    """
+    Extracts a substring from the target string that matches the given pattern in the no-accent version of the string.
+    """
+    match = re.search(pattern, no_accent_target, re.IGNORECASE)
+    
+    if match:
+        if match.lastindex:
+            start_idx = match.start(1)
+            end_idx = match.end(1)
+        else:
+            start_idx = match.start()
+            end_idx = match.end()
+        
+        return target[start_idx:end_idx]
+    
+    return ""
+
+
+def matching_and_find_substring(target: str, no_accent_target: str, pattern: str) -> str:
+    """
+    Generate all possible substrings from the pattern 
+    (from left to right, longest to shortest, always starting with the first word in the pattern)
+    and return the longest substring found in the target string using extract_information.
+    """
+    words = pattern.split()
+    for end in range(len(words), 0, -1):
+        sub_pattern = ' '.join(words[:end])
+        # print(sub_pattern)
+        result = _matching_and_find_substring(target, no_accent_target, sub_pattern)
+        if result:
+            return result
+    return ""
+
+
+def correct_misspelled_words(target: str, no_accent_target: str) -> str:
+    """
+    Corrects misspelled words in the target string by replacing words without accents 
+    found in no_accent_target with their corresponding accented words.
+    """
+    for no_accent, correct_word in zip(CHECK_SPELL_WORDS_NO_ACCENT, CHECK_SPELL_WORDS):
+        # Create a regex pattern to find the word in no_accent_target
+        pattern = r'\b' + re.escape(no_accent) + r'\b'
+        
+        # Search for the word in no_accent_target
+        match = re.search(pattern, no_accent_target, re.IGNORECASE)
+        if match:
+            start_idx, end_idx = match.start(), match.end()
+            
+            # Replace the misspelled word in target with the correct word
+            target = target[:start_idx] + correct_word + target[end_idx:]
+    target = re.sub(r'\s+', ' ', target).strip()
+
+    return target
 
 
 def init_cap_words(text: str) -> str:
@@ -113,6 +217,8 @@ def clean_dash_address(text: str, dict_norm_city_dash: dict) -> str:
     for key, synonyms in dict_norm_city_dash.items():
         pattern = r"\b|\b".join(map(re.escape, synonyms))
         text = re.sub(pattern, key, text, flags=re.IGNORECASE)
+
+    text = re.sub(r"\s+", " ", text).strip()
 
     return text
 
@@ -206,7 +312,7 @@ def remove_spare_space(text: str) -> str:
     Returns:
         str: String with extra spaces removed.
     """
-    return re.sub(r'\s+', ' ', text.strip())
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def remove_punctuation(text: str, punctuations: list) -> str:
@@ -310,16 +416,14 @@ def clean_full_address(text: str) -> str:
     if not isinstance(text, str):
         raise ValueError("Input must be a string")
 
-    text = init_cap_words(text)
-    text = remove_accent(text)
-    text = clean_abbrev_address(text, DICT_NORM_ABBREV)
-    text = remove_spare_space(text)
-    text = clean_digit_district(text)
-    text = clean_digit_ward(text)
-    text = clean_dash_address(text, DICT_NORM_CITY_DASH)
-    text = remove_punctuation(text, ADDRESS_PUNCTUATIONS)
-    text = add_space_separator(text)
+    # text = remove_punctuation(text, ADDRESS_PUNCTUATIONS)
+    # text = add_space_separator(text)
 
+    text = remove_accent(text)
+
+    text = clean_dash_address(text, DICT_NORM_CITY_DASH)
+    text = clean_abbrev_address(text, DICT_NORM_ABBREV)
+    
     text = clean_digit_district(text)
     text = clean_digit_ward(text)
 
@@ -329,7 +433,10 @@ def clean_full_address(text: str) -> str:
 def parse_address(input_address, db_provinces, db_districts, db_wards, special_ending):
     
     # Preprocess the address
-    address = clean_full_address(input_address) + ','
+    normalized_address = remove_punctuation(input_address, ADDRESS_PUNCTUATIONS)
+    normalized_address = add_space_separator(normalized_address)
+
+    address = clean_full_address(normalized_address) + ','
 
     founded_province = ""
     founded_district = ""
@@ -341,7 +448,7 @@ def parse_address(input_address, db_provinces, db_districts, db_wards, special_e
     # Extract Province/City
     for province, province_data in db_provinces.items():
         for word in province_data['words']:
-            # Select the closest component (province, district, ward) from the right of the address
+            # Select the closest component (Province, District, Ward) from the right of the address
             last_index = address.rfind(word)
             # If two components have the same index, prioritize the longer string
             if (
@@ -436,5 +543,27 @@ def parse_address(input_address, db_provinces, db_districts, db_wards, special_e
     founded_district = db_districts.get(founded_district, {}).get('name', "")
     founded_ward = db_wards.get(founded_ward, {}).get('name', "")
 
-    modified_address = address + " " + founded_ward + ", " + founded_district + ", " + founded_province
+    # Remove redundant parts after extracting province/city, district, ward from NO-ACCENT address
+    tmp_address = remove_abundant_part(address)
+
+    # Convert the normalized address to a no-accent version 
+    no_accent_normalized_address = unidecode(normalized_address)
+    
+    print(tmp_address)
+    print(normalized_address)
+    print(no_accent_normalized_address)
+
+    # Find address lv4 (street address) in the original address
+    address_lv4 = matching_and_find_substring(normalized_address, no_accent_normalized_address, tmp_address)
+
+    # Correct misspelled words
+    address_lv4_no_accent = unidecode(address_lv4)
+    address_lv4 = correct_misspelled_words(address_lv4, address_lv4_no_accent)
+    print(address_lv4)
+
+    # Filter out empty values before joining
+    address_parts = [address_lv4, founded_ward, founded_district, founded_province]
+    modified_address = ", ".join(filter(None, address_parts))
+    modified_address = re.sub(r"\s+", " ", modified_address).strip()
+
     return modified_address
