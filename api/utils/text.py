@@ -1,5 +1,6 @@
 import re
 from unidecode import unidecode
+import itertools
 from datetime import datetime
 
 import sys
@@ -10,6 +11,8 @@ from utils.address import *
 from utils.data.province import PROVINCE_DICTIONARY
 from utils.data.district import DISTRICT_DICTIONARY
 from utils.data.ward import WARD_DICTIONARY
+
+from utils.data.name import FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET
 
 # Regex patterns to extract information
 
@@ -152,14 +155,79 @@ def extract_name(text):
     return cleaned_text
 
 
-def extract_address(text):
-    # Keep only letters, numbers, spaces, commas, slashes, and hyphens
-    cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ0-9,\-\/\s]", "", text)
-    
-    # Normalize extra spaces
-    cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
-    
-    return cleaned_text
+def normalize_name(name: str, first_names: set, middle_names: set, last_names: set) -> str:
+    """
+    Normalize a Vietnamese name by correcting misspellings, capitalizing words, 
+    and rearranging components in the correct order: Last Name - Middle Name(s) - First Name.
+
+    Args:
+        name (str): The input name to be normalized.
+        first_names (set): A set of valid last names (Họ).
+        middle_names (set): A set of valid middle names (Chữ lót).
+        last_names (set): A set of valid first names (Tên).
+
+    Returns:
+        str: The normalized full name or an empty string if no valid name is found.
+    """
+
+    def find_best_match(word, valid_set):
+        """Find the best match for a word in the given set by comparing its non-accented version."""
+        candidates = [vn_name for vn_name in valid_set if unidecode(vn_name).lower() == unidecode(word).lower()]
+        return candidates[0] if candidates else None
+
+    words = name.split()
+    words = [word.capitalize() for word in words]  # Capitalize the first letter of each word
+
+    # Remove invalid words
+    valid_words = []
+    for word in words:
+        if word in first_names or word in middle_names or word in last_names:
+            valid_words.append(word)
+        else:
+            match = find_best_match(word, first_names | middle_names | last_names)
+            if match:
+                valid_words.append(match)
+
+    if not valid_words:
+        return ""
+
+    first, middle, last = "", [], ""
+
+    # Họ
+    for word in valid_words:
+        if word in first_names:
+            first = word
+            valid_words.remove(word)
+            break
+    else:  # If no exact match is found, try finding a non-accented match
+        for word in valid_words:
+            match = find_best_match(word, first_names)
+            if match:
+                first = match
+                valid_words.remove(word)
+                break
+
+    # Tên
+    for word in reversed(valid_words):
+        if word in first_names.union(last_names):
+            last = word
+            valid_words.remove(word)
+            break
+    else:  # If no exact match is found, try finding a non-accented match
+        for word in reversed(valid_words):
+            match = find_best_match(word, first_names.union(last_names))
+            if match:
+                last = match
+                valid_words.remove(word)
+                break
+
+    # The remaining words are middle names (Chữ lót)
+    middle = valid_words
+
+    return " ".join(itertools.chain([first], middle, [last])).strip()
+
+
+
 
 def extract_address(text):
 
@@ -364,10 +432,12 @@ def process_output(ocr_output):
 
     employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN)
     employee_name = extract_name(employee_name)
+    employee_name = normalize_name(employee_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
     profile_info["employee_name"] = employee_name
 
     customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN)
     customer_name = extract_name(customer_name)
+    customer_name = normalize_name(customer_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
     profile_info["customer_name"] = customer_name
 
     customer_phone = extract_information(target, no_accent_target, CUSTOMER_PHONE_PATTERN)
