@@ -13,48 +13,29 @@ from utils.data.ward import WARD_DICTIONARY
 
 # Regex patterns to extract information
 
-SPECIAL_CHARACTER = r"§¤©¶µ¼½¾÷±×‰′″‡†℗™Ω∞≈≠≤≥«»‹›“”‘’=><„,./\-_()|"
-ACCENT_LETTERS_AND_SPACE = r"A-Za-zÀ-ỹ\s"
+SPECIAL_CHARACTER = r"=><„,.:;“”\/-_(){}|?"
 DIGIT_AND_MISSPELLED_CHAR = "\dOÔƠ,\."
 OPTIONAL_COLON = "\s*:?\s*"
 
+
+# Regex to capture various datetime formats
+TIME_DATE_PATTERN = r"(?:(\d{2}[:]\d{2}(?::\d{2})?)\s+)?(\d{2}[\s/-]\d{2}[\s/-]\d{4})(?:\s+(\d{2}[:]\d{2}(?::\d{2})?))?"
+
 CREATED_TIME_PATTERN = r"(?:(?:hoa don ban hang)[^0-9]*)?(\d{1,2}\s*[/:.-]\s*\d{1,2}\s*[/:.-]\s*\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?|\d{1,2}:\d{2}(?::\d{2})?\s+\d{1,2}\s*[/:.-]\s*\d{1,2}\s*[/:.-]\s*\d{4})"
-SHOP_NAME_PATTERN = rf"(?:s\s*hop){OPTIONAL_COLON}([{ACCENT_LETTERS_AND_SPACE}]+?)(?=hot\s*line|[{SPECIAL_CHARACTER}])"
-# 1. shop\s*:?\s*
-# (?:shop) → Non-capturing "shop".
-# \s* → Matches any spaces after "shop".
-# :?\s* → Allows an optional colon (:), followed by spaces.
-# 2. ([A-Za-zÀ-ỹ\s]+?)
-# Captures the shop name:
-# [A-Za-zÀ-ỹ\s]+? → Matches letters (both English and accented characters) and spaces.
-# +? (lazy match) ensures it stops at the first valid boundary.
-# 3. (?=\s*hot\s*line|[{SPECIAL_CHARACTER}])
-# Lookahead (?=) → Ensures the match stops before:
-# \s*hot\s*line → Allowing spaces between "hot" and "line".
-# OR any special character listed in SPECIAL_CHARACTER.
-
-# Example
-# text = "SHOP THỦY DƯƠNG => } \ | § LÍ Hotline: 0937762858 - 0933904040 ="
-# match = re.search(SHOP_NAME_PATTERN, text, re.IGNORECASE)
-
-# if match:
-#     print("Tên shop:", match.group(1))
-
-HOTLINE_PATTERN = rf"(?:hot\s*line){OPTIONAL_COLON}([\d\s\-]+)(.*?(?:nhan\s*vien ban\s*hang)"
-EMPLOYEE_NAME_PATTERN = rf"(?:nhan\s*vien ban\s*hang){OPTIONAL_COLON}([{ACCENT_LETTERS_AND_SPACE}]+?)(?=khach\s*hang|[{SPECIAL_CHARACTER}])"
-CUSTOMER_NAME_PATTERN = rf"(?:khach\s*hang){OPTIONAL_COLON}([{ACCENT_LETTERS_AND_SPACE}]+?)(?=s\s*dt|[{SPECIAL_CHARACTER}])"
+SHOP_NAME_PATTERN = rf"(?:s\s*hop){OPTIONAL_COLON}(.*?)(?:hot\s*line)"
+HOTLINE_PATTERN = rf"(?:hot\s*line){OPTIONAL_COLON}(.*?)(?:nhan\s*vien\s*ban\s*hang)"
+EMPLOYEE_NAME_PATTERN = rf"(?:nhan\s*vien\s*ban\s*hang){OPTIONAL_COLON}(.*?)(?:khach\s*hang)"
+CUSTOMER_NAME_PATTERN = rf"(?:khach\s*hang){OPTIONAL_COLON}(.*?)(?:s\s*dt)"
 CUSTOMER_PHONE_PATTERN = rf"(?:s\s*dt){OPTIONAL_COLON}(.*?)(?:dia\s*chi)"
+
 ADDRESS_PATTERN = rf"(?:dia\s*chi){OPTIONAL_COLON}(.*?)(?:khu\s*vuc)"
-REGION_PATTERN = rf"(?:khu\s*vuc){OPTIONAL_COLON}(.*?)(?:thoi\s*gian giao\s*hang)"
-SHIPPING_TIME_PATTERN = rf"(?:thoi\s*gian giao\s*hang){OPTIONAL_COLON}(.*?)(?:ten)"
+REGION_PATTERN = rf"(?:khu\s*vuc){OPTIONAL_COLON}(.*?)(?:thoi\s*gian\s*giao\s*hang)"
+SHIPPING_TIME_PATTERN = rf"(?:thoi\s*gian\s*giao\s*hang){OPTIONAL_COLON}(.*?)(?:ten)"
 
 TOTAL_QUANTITY_PATTERN = rf"tong\s*so\s*luong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
 TOTAL_AMOUNT_PATTERN = rf"tong\s*tien\s*hang{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
 DISCOUNT_PATTERN = rf"chiet\s*khau\s*hoa\s*don{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
 MONETARY_PATTERN = rf"tong\s*cong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
-
-# Regex to capture various datetime formats
-TIME_DATE_PATTERN = r"(?:(\d{2}[:\s]+\d{2}(?::\d{2})?)\s+)?(\d{2}[\s/-]+\d{2}[\s/-]+\d{4})(?:\s+(\d{2}[:\s]+\d{2}(?::\d{2})?))?"
 
 
 def clean_text_before_unidecode(text):
