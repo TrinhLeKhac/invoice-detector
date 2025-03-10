@@ -12,26 +12,53 @@ from utils.data.district import DISTRICT_DICTIONARY
 from utils.data.ward import WARD_DICTIONARY
 
 # Regex patterns to extract information
-CREATED_TIME_NO_ACCENT_PATTERN = r"(?:hoa don ban hang)\s*:?\s*([\d/\s:]+)\s*\.*\s*(?:shop)\s*:?"
-SHOP_NAME_NO_ACCENT_PATTERN = r"(?:shop)\s*:?\s*(.*?)\s*\.*\s*(?:hot line)\s*:?"
-HOTLINE_NO_ACCENT_PATTERN = r"(?:hot line)\s*:?\s*(.*?)\s*\.*\s*(?:nhan vien ban hang)\s*:?"
-EMPLOYEE_NAME_NO_ACCENT_PATTERN = r"(?:nhan vien ban hang)\s*:?\s*(.*?)\s*\.*\s*(?:khach hang)\s*:?"
-CUSTOMER_NAME_NO_ACCENT_PATTERN = r"(?:khach hang)\s*:?\s*(.*?)\s*\.*\s*(?:sdt)\s*:?"
-CUSTOMER_PHONE_NO_ACCENT_PATTERN = r"(?:sdt)\s*:?\s*(.*?)\s*\.*\s*(?:dia chi)\s*:?"
-ADDRESS_NO_ACCENT_PATTERN = r"(?:dia chi)\s*:?\s*(.*?)\s*\.*\s*(?:khu vuc)\s*:?"
-REGION_NO_ACCENT_PATTERN = r"(?:khu vuc)\s*:?\s*(.*?)\s*\.*\s*(?:thoi gian giao hang)\s*:?"
-SHIPPING_TIME_NO_ACCENT_PATTERN = r"(?:thoi gian giao hang)\s*:?\s*(.*?)\s*\.*\s*(?:ten)\s*:?"
 
-TOTAL_QUANTITY_NO_ACCENT_PATTERN = r"tong so luong\s*:?\s*([\dOÔƠ,\.]+)"
-TOTAL_AMOUNT_NO_ACCENT_PATTERN = r"tong tien hang\s*:?\s*([\dOÔƠ,\.]+)"
-DISCOUNT_NO_ACCENT_PATTERN = r"chiet khau hoa don\s*:?\s*([\dOÔƠ,\.]+)"
-MONETARY_NO_ACCENT_PATTERN = r"tong cong\s*:?\s*([\dOÔƠ,\.]+)"
+SPECIAL_CHARACTER = r"§¤©¶µ¼½¾÷±×‰′″‡†℗™Ω∞≈≠≤≥«»‹›“”‘’=><„,./\-_()|"
+ACCENT_LETTERS_AND_SPACE = r"A-Za-zÀ-ỹ\s"
+DIGIT_AND_MISSPELLED_CHAR = "\dOÔƠ,\."
+OPTIONAL_COLON = "\s*:?\s*"
+
+CREATED_TIME_PATTERN = r"(?:(?:hoa don ban hang)[^0-9]*)?(\d{1,2}\s*[/:.-]\s*\d{1,2}\s*[/:.-]\s*\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?|\d{1,2}:\d{2}(?::\d{2})?\s+\d{1,2}\s*[/:.-]\s*\d{1,2}\s*[/:.-]\s*\d{4})"
+SHOP_NAME_PATTERN = rf"(?:s\s*hop){OPTIONAL_COLON}([{ACCENT_LETTERS_AND_SPACE}]+?)(?=hot\s*line|[{SPECIAL_CHARACTER}])"
+# 1. shop\s*:?\s*
+# (?:shop) → Non-capturing "shop".
+# \s* → Matches any spaces after "shop".
+# :?\s* → Allows an optional colon (:), followed by spaces.
+# 2. ([A-Za-zÀ-ỹ\s]+?)
+# Captures the shop name:
+# [A-Za-zÀ-ỹ\s]+? → Matches letters (both English and accented characters) and spaces.
+# +? (lazy match) ensures it stops at the first valid boundary.
+# 3. (?=\s*hot\s*line|[{SPECIAL_CHARACTER}])
+# Lookahead (?=) → Ensures the match stops before:
+# \s*hot\s*line → Allowing spaces between "hot" and "line".
+# OR any special character listed in SPECIAL_CHARACTER.
+
+# Example
+# text = "SHOP THỦY DƯƠNG => } \ | § LÍ Hotline: 0937762858 - 0933904040 ="
+# match = re.search(SHOP_NAME_PATTERN, text, re.IGNORECASE)
+
+# if match:
+#     print("Tên shop:", match.group(1))
+
+HOTLINE_PATTERN = rf"(?:hot\s*line){OPTIONAL_COLON}([\d\s\-]+)(.*?(?:nhan\s*vien ban\s*hang)"
+EMPLOYEE_NAME_PATTERN = rf"(?:nhan\s*vien ban\s*hang){OPTIONAL_COLON}([{ACCENT_LETTERS_AND_SPACE}]+?)(?=khach\s*hang|[{SPECIAL_CHARACTER}])"
+CUSTOMER_NAME_PATTERN = rf"(?:khach\s*hang){OPTIONAL_COLON}([{ACCENT_LETTERS_AND_SPACE}]+?)(?=s\s*dt|[{SPECIAL_CHARACTER}])"
+CUSTOMER_PHONE_PATTERN = rf"(?:s\s*dt){OPTIONAL_COLON}(.*?)(?:dia\s*chi)"
+ADDRESS_PATTERN = rf"(?:dia\s*chi){OPTIONAL_COLON}(.*?)(?:khu\s*vuc)"
+REGION_PATTERN = rf"(?:khu\s*vuc){OPTIONAL_COLON}(.*?)(?:thoi\s*gian giao\s*hang)"
+SHIPPING_TIME_PATTERN = rf"(?:thoi\s*gian giao\s*hang){OPTIONAL_COLON}(.*?)(?:ten)"
+
+TOTAL_QUANTITY_PATTERN = rf"tong\s*so\s*luong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+TOTAL_AMOUNT_PATTERN = rf"tong\s*tien\s*hang{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+DISCOUNT_PATTERN = rf"chiet\s*khau\s*hoa\s*don{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+MONETARY_PATTERN = rf"tong\s*cong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
 
 # Regex to capture various datetime formats
 TIME_DATE_PATTERN = r"(?:(\d{2}[:\s]+\d{2}(?::\d{2})?)\s+)?(\d{2}[\s/-]+\d{2}[\s/-]+\d{4})(?:\s+(\d{2}[:\s]+\d{2}(?::\d{2})?))?"
 
 
 def clean_text_before_unidecode(text):
+
     """
     Cleans the text by removing:
     - Special characters that may expand (e.g., œ -> oe)
@@ -39,6 +66,10 @@ def clean_text_before_unidecode(text):
     - Invisible whitespace characters (\u200b, \u00A0)
     - Soft hyphen (\u00AD)
     """
+
+    # # Remove special characters (keeps only letters, digits, and spaces)
+    # text = re.sub(r'[^A-Za-zÀ-ỹ0-9\s]', '', text)
+
     # Remove emojis using regex (matches all Unicode emoji ranges)
     text = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0\U000024C2-\U0001F251]', '', text)
     
@@ -52,24 +83,59 @@ def clean_text_before_unidecode(text):
 
 
 def extract_information(target, no_accent_target, pattern):    
+
+    """
+    Extracts the desired information from `target` using regex on `no_accent_target`.
+
+    This function applies the regex pattern to `no_accent_target`, then retrieves 
+    the corresponding substring from `target` based on the matched index range.
+
+    Args:
+        target (str): The original text (with accents).
+        no_accent_target (str): The text without accents, used for regex matching.
+        pattern (str): The regex pattern for extraction.
+
+    Returns:
+        str: Extracted information if found, else an empty string.
+    """
+
     match = re.search(pattern, no_accent_target, re.IGNORECASE)
     
     if match:
+        # Get the start and end indices of the captured group in `no_accent_target`
         start_idx = match.start(1)
         end_idx = match.end(1)
+
+        # Extract the corresponding substring from the original `target`
         information = target[start_idx:end_idx]
-        
-        # remain = re.sub(re.escape(information), "", target).strip()
-        # no_accent_remain = re.sub(re.escape(unidecode(information)), "", no_accent_target).strip()
-        # assert len(remain) == len(no_accent_remain)
         
         return information
     return ""
 
 
 def extract_and_normalize_phone_numbers(text):
-    # Matches phone numbers starting with +084, +84, or 0
-    pattern = r"\b(?:\+084|\+84|0)(\d{9})\b"
+
+    """
+    Extracts and normalizes phone numbers from a given text.
+
+    This function searches for phone numbers that:
+    - Start with "+084", "+84", or "0"
+    - Are followed by exactly **9 or 10 digits**
+
+    The extracted numbers are normalized by:
+    - Removing "+084" and "+84", replacing them with "0"
+    - Ensuring all phone numbers are returned in a standard "0XXXXXXXXX(X)" format
+
+    Args:
+        text (str): The input string containing phone numbers.
+
+    Returns:
+        list: A list of normalized phone numbers in "0XXXXXXXXX(X)" format.
+    # Remove numbers and special characters, keeping only letters and spaces
+    """
+
+    # Matches phone numbers starting with +084, +84, or 0 and followed by 9 or 10 digits
+    pattern = r"\b(?:\+084|\+84|0)(\d{9,10})\b"
     
     # Get list of matched numbers
     matches = re.findall(pattern, text)
@@ -81,10 +147,25 @@ def extract_and_normalize_phone_numbers(text):
 
 
 def extract_name(text):
-    # Remove numbers and special characters, keeping only letters and spaces
+
+    """
+    Extracts and cleans a name from a given text by removing unwanted characters.
+
+    This function performs the following steps:
+    - Removes special characters**, keeping only letters (both English and accented characters) and spaces.
+    - Normalizes spaces**, ensuring there are no extra or trailing spaces.
+
+    Args:
+        text (str): The input string containing a name.
+
+    Returns:
+        str: A cleaned name with only valid characters and properly formatted spacing.
+    """
+
+    # Remove special characters, keeping only letters (including accents) and spaces
     cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ\s]", "", text)
     
-    # Normalize extra spaces
+    # Normalize spaces (convert multiple spaces to a single space)
     cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
     
     return cleaned_text
@@ -95,6 +176,34 @@ def extract_address(text):
     cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ0-9,\-\/\s]", "", text)
     
     # Normalize extra spaces
+    cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
+    
+    return cleaned_text
+
+def extract_address(text):
+
+    """
+    Extracts and cleans an address by removing unwanted characters.
+
+    This function ensures that:
+    Only valid address characters are kept**, including:
+       - Letters (both English and accented characters)
+       - Numbers (0-9)
+       - Spaces
+       - Commas (,), slashes (/), and hyphens (-) (commonly used in addresses)
+    Extra spaces are normalized** to ensure proper formatting.
+
+    Args:
+        text (str): The input string containing an address.
+
+    Returns:
+        str: A cleaned address with only valid characters and properly formatted spacing.
+    """
+
+    # Keep only letters, numbers, spaces, commas, slashes, and hyphens
+    cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ0-9,\-\/\s]", "", text)
+    
+    # Normalize spaces (convert multiple spaces to a single space)
     cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
     
     return cleaned_text
@@ -179,7 +288,7 @@ def normalize_datetime(text):
             time_part += ":00"
 
         datetime_str = f"{date_part} {time_part}"
-        
+
         # Convert to datetime object
         # try:
         #     dt_obj = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
@@ -191,23 +300,23 @@ def normalize_datetime(text):
     return ""
 
 
-def test_normalize_datetime():
-    # Test cases
-    test_cases = [
-        "03/01/2025 18:10",
-        "03/01/2025 18:10:10",
-        "18:10:10 03/01/2025",
-        "03-01-2025 18:10",
-        "03-01-2025 18:10:10",
-        "18:10:10 03-01-2025",
-        "03-01-2025",
-        "03/01/2025",
-        "03  /  01  /  2025   18:10",
-        "18:10:10   03 - 01 - 2025",
-    ]
-    # Run test cases
-    for test in test_cases:
-        print(f"Input: {test}\nOutput: {normalize_datetime(test)}\n")
+# def test_normalize_datetime():
+#     # Test cases
+#     test_cases = [
+#         "03/01/2025 18:10",
+#         "03/01/2025 18:10:10",
+#         "18:10:10 03/01/2025",
+#         "03-01-2025 18:10",
+#         "03-01-2025 18:10:10",
+#         "18:10:10 03-01-2025",
+#         "03-01-2025",
+#         "03/01/2025",
+#         "03  /  01  /  2025   18:10",
+#         "18:10:10   03 - 01 - 2025",
+#     ]
+#     # Run test cases
+#     for test in test_cases:
+#         print(f"Input: {test}\nOutput: {normalize_datetime(test)}\n")
 
 
 def process_output(ocr_output):
@@ -260,55 +369,55 @@ def process_output(ocr_output):
     print(no_accent_target)
 
     # Extract information
-    created_time = extract_information(target, no_accent_target, CREATED_TIME_NO_ACCENT_PATTERN)
+    created_time = extract_information(target, no_accent_target, CREATED_TIME_PATTERN)
     created_time = normalize_datetime(created_time)
     profile_info["created_time"] = created_time
     
-    shop_name = extract_information(target, no_accent_target, SHOP_NAME_NO_ACCENT_PATTERN)
+    shop_name = extract_information(target, no_accent_target, SHOP_NAME_PATTERN)
     shop_name = extract_name(shop_name)
     profile_info["shop_name"] = shop_name
 
-    hotline = extract_information(target, no_accent_target, HOTLINE_NO_ACCENT_PATTERN)
+    hotline = extract_information(target, no_accent_target, HOTLINE_PATTERN)
     lst_hotline =  extract_and_normalize_phone_numbers(hotline)
     profile_info["hotline"] = lst_hotline
 
-    employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_NO_ACCENT_PATTERN)
+    employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN)
     employee_name = extract_name(employee_name)
     profile_info["employee_name"] = employee_name
 
-    customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_NO_ACCENT_PATTERN)
+    customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN)
     customer_name = extract_name(customer_name)
     profile_info["customer_name"] = customer_name
 
-    customer_phone = extract_information(target, no_accent_target, CUSTOMER_PHONE_NO_ACCENT_PATTERN)
+    customer_phone = extract_information(target, no_accent_target, CUSTOMER_PHONE_PATTERN)
     lst_customer_phone =  extract_and_normalize_phone_numbers(customer_phone)
     if len(lst_customer_phone) > 0:
         profile_info["customer_phone"] = lst_customer_phone[0]
     
-    address = extract_information(target, no_accent_target, ADDRESS_NO_ACCENT_PATTERN)
+    address = extract_information(target, no_accent_target, ADDRESS_PATTERN)
     address = extract_address(address)
     address = parse_address(address, PROVINCE_DICTIONARY, DISTRICT_DICTIONARY, WARD_DICTIONARY, SPECIAL_ENDING)
     profile_info["address"] = address
 
-    region = extract_information(target, no_accent_target, REGION_NO_ACCENT_PATTERN)
+    region = extract_information(target, no_accent_target, REGION_PATTERN)
     region = extract_name(region)
     profile_info["region"] = region
 
-    shipping_time = extract_information(target, no_accent_target, SHIPPING_TIME_NO_ACCENT_PATTERN)
+    shipping_time = extract_information(target, no_accent_target, SHIPPING_TIME_PATTERN)
     shipping_time = normalize_datetime(shipping_time)
     profile_info["shipping_time"] = shipping_time
 
-    total_quantity = extract_information(target, no_accent_target, TOTAL_QUANTITY_NO_ACCENT_PATTERN)
+    total_quantity = extract_information(target, no_accent_target, TOTAL_QUANTITY_PATTERN)
     total_quantity =  normalize_number(total_quantity)
     order_summary["total_quantity"] = total_quantity
 
-    total_amount = extract_information(target, no_accent_target, TOTAL_AMOUNT_NO_ACCENT_PATTERN)
+    total_amount = extract_information(target, no_accent_target, TOTAL_AMOUNT_PATTERN)
     total_amount =  normalize_number(total_amount)
 
-    discount = extract_information(target, no_accent_target, DISCOUNT_NO_ACCENT_PATTERN)
+    discount = extract_information(target, no_accent_target, DISCOUNT_PATTERN)
     discount =  normalize_number(discount)
     
-    monetary = extract_information(target, no_accent_target, MONETARY_NO_ACCENT_PATTERN)
+    monetary = extract_information(target, no_accent_target, MONETARY_PATTERN)
     monetary =  normalize_number(monetary)
 
     total_amount, discount, monetary = validate_and_fill_amounts(total_amount, discount, monetary)
