@@ -12,7 +12,7 @@ from utils.data.province import PROVINCE_DICTIONARY
 from utils.data.district import DISTRICT_DICTIONARY
 from utils.data.ward import WARD_DICTIONARY
 
-from utils.data.name import FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET
+from utils.data.name import FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
 
 # Regex patterns to extract information
 
@@ -35,10 +35,15 @@ ADDRESS_PATTERN = rf"(?:dia\s*chi){OPTIONAL_COLON}(.*?)(?:khu\s*vuc)"
 REGION_PATTERN = rf"(?:khu\s*vuc){OPTIONAL_COLON}(.*?)(?:thoi\s*gian\s*giao\s*hang)"
 SHIPPING_TIME_PATTERN = rf"(?:thoi\s*gian\s*giao\s*hang){OPTIONAL_COLON}(.*?)(?:ten)"
 
-TOTAL_QUANTITY_PATTERN = rf"tong\s*so\s*luong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
-TOTAL_AMOUNT_PATTERN = rf"tong\s*tien\s*hang{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
-DISCOUNT_PATTERN = rf"chiet\s*khau\s*hoa\s*don{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
-MONETARY_PATTERN = rf"tong\s*cong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+# TOTAL_QUANTITY_PATTERN = rf"tong\s*so\s*luong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+# TOTAL_AMOUNT_PATTERN = rf"tong\s*tien\s*hang{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+# DISCOUNT_PATTERN = rf"chiet\s*khau\s*hoa\s*don{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+# MONETARY_PATTERN = rf"tong\s*cong{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+
+TOTAL_QUANTITY_PATTERN = rf"t[ôoòóỏọõốồổỗộơờớởỡợ]ng\s*s[ôoòóỏọõốồổỗộơờớởỡợ]\s*l[uưừứửữự][oôọóòõốồổỗộơờớởỡợ]ng{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+TOTAL_AMOUNT_PATTERN = rf"t[ôoòóỏọõốồổỗộơờớởỡợ]ng\s*t[iìíĩịîï][êeéèẽẹêềếểễệ]n\s*h[aàáãạâấầẩẫậăắằẳẵặ]ng{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+DISCOUNT_PATTERN = rf"ch[iìíĩịîï][êeéèẽẹêềếểễệ]t\s*kh[aàáãạâấầẩẫậăắằẳẵặ][uưừứửữự]\s*h[oòóỏọõôốồổỗộơờớởỡợ][aàáãạâấầẩẫậăắằẳẵặ]\s*[đd][oòóỏọõôốồổỗộơờớởỡợ]n{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
+MONETARY_PATTERN = rf"t[ôoòóỏọõốồổỗộơờớởỡợ]ng\s*c[oôòóỏọõốồổỗộơờớởỡợ]ng{OPTIONAL_COLON}([{DIGIT_AND_MISSPELLED_CHAR}]+)"
 
 
 def clean_text_before_unidecode(text):
@@ -66,7 +71,7 @@ def clean_text_before_unidecode(text):
     return text
 
 
-def extract_information(target, no_accent_target, pattern):    
+def extract_information(target, no_accent_target, pattern, direct=False):    
 
     """
     Extracts the desired information from `target` using regex on `no_accent_target`.
@@ -83,18 +88,25 @@ def extract_information(target, no_accent_target, pattern):
         str: Extracted information if found, else an empty string.
     """
 
-    match = re.search(pattern, no_accent_target, re.IGNORECASE)
+    if direct:
+        match = re.search(pattern, target, re.IGNORECASE)
     
-    if match:
-        # Get the start and end indices of the captured group in `no_accent_target`
-        start_idx = match.start(1)
-        end_idx = match.end(1)
-
-        # Extract the corresponding substring from the original `target`
-        information = target[start_idx:end_idx]
+        if match:
+            return match.group(1)  # Capture the first group
+        return ""
+    else:
+        match = re.search(pattern, no_accent_target, re.IGNORECASE)
         
-        return information
-    return ""
+        if match:
+            # Get the start and end indices of the captured group in `no_accent_target`
+            start_idx = match.start(1)
+            end_idx = match.end(1)
+
+            # Extract the corresponding substring from the original `target`
+            information = target[start_idx:end_idx]
+            
+            return information
+        return ""
 
 
 def extract_and_normalize_phone_numbers(text):
@@ -226,6 +238,100 @@ def normalize_name(name: str, first_names: set, middle_names: set, last_names: s
 
     return " ".join(itertools.chain([first], middle, [last])).strip()
 
+
+def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, last_names: dict) -> str:
+    """
+    Normalize a Vietnamese name by correcting misspellings, capitalizing words, 
+    and rearranging components in the correct order: first_names (Họ) - middle_names (Chữ lót) - last_names (Tên).
+
+    Args:
+        name (str): The input name to be normalized.
+        first_names (dict): A dictionary of valid first names (Họ) with priority scores.
+        middle_names (dict): A dictionary of valid middle names (Chữ lót) with priority scores.
+        last_names (dict): A dictionary of valid last names (Tên) with priority scores.
+
+    Returns:
+        str: The normalized full name or an empty string if no valid name is found.
+    """
+
+    def find_best_match(word, valid_dict):
+        """Find the best match for a word in the given dictionary by comparing its non-accented version."""
+        candidates = [vn_name for vn_name in valid_dict if unidecode(vn_name).lower() == unidecode(word).lower()]
+        if candidates:
+            return max(candidates, key=lambda x: valid_dict[x])  # Choose the one with the highest priority
+        return None
+
+    words = name.split()
+    words = [word.capitalize() for word in words]  # Capitalize the first letter of each word
+
+    # Remove invalid words and correct misspellings
+    valid_words = []
+    for word in words:
+        if word in first_names or word in middle_names or word in last_names:
+            valid_words.append(word)  # Keep valid words
+        else:
+            match = find_best_match(word, {**first_names, **middle_names, **last_names})  
+            if match:
+                valid_words.append(match)  # Replace misspelled words with best matches
+
+    if not valid_words:
+        return ""
+        
+    print("Valid words: ", valid_words)
+    first, middle, last = "", [], ""
+
+    # **Step 1: Identify the Last Name (Họ)**
+    # Find exact matches in the first_names dictionary
+    found_first_names = [word for word in valid_words if word in first_names]
+    print("found_first_names: ", found_first_names)
+    
+    # Find potential last names by checking for misspelled versions in first_names
+    # found_first_matches = {find_best_match(word, first_names): word for word in valid_words if word not in found_first_names}
+    found_first_matches = {
+        match: word for word in valid_words if word not in found_first_names and (match := find_best_match(word, first_names))
+    }
+    print("found_first_matches: ", found_first_matches)
+    
+    
+    # Combine both exact and corrected last name candidates
+    all_first_candidates = found_first_names + list(found_first_matches.keys())
+    print("all_matches: ", all_first_candidates)
+    
+    # Select the last name with the highest priority score
+    if all_first_candidates:
+        first = max(all_first_candidates, key=lambda x: first_names[x])
+        print("Họ: ", first)
+        if first in found_first_names:
+            print("Remove from first_names")
+            valid_words.remove(first)  # Remove the selected last name
+        else:
+            print("Remove from first_matches")
+            valid_words.remove(found_first_matches[first])  # Remove the misspelled version
+            
+    # **Step 2: Identify the First Name (Tên)**
+    # Find exact matches for first name (including cases where it appears in first_names)
+    found_last_names = [word for word in reversed(valid_words) if word in {**first_names, **last_names}]
+    print("found_last_names: ", found_last_names)
+
+    # Select the first name with the highest priority
+    if found_last_names:
+        last = max(found_last_names, key=lambda x: {**first_names, **last_names}.get(x))
+        print("Tên: ", last)
+        valid_words.remove(last)
+    else:
+        print("Tên else")
+        for word in reversed(valid_words):
+            match = find_best_match(word, {**first_names, **last_names})  
+            if match:
+                last = match
+                print("Tên: ", last)
+                valid_words.remove(word)
+                break
+
+    # **Step 3: Remaining words are treated as Middle Name(s) (Chữ lót)**
+    middle = valid_words
+
+    return " ".join(itertools.chain([first], middle, [last])).strip()
 
 
 
@@ -432,12 +538,14 @@ def process_output(ocr_output):
 
     employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN)
     employee_name = extract_name(employee_name)
-    employee_name = normalize_name(employee_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
+    # employee_name = normalize_name(employee_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
+    employee_name = normalize_name_by_weight(employee_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT)
     profile_info["employee_name"] = employee_name
 
     customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN)
     customer_name = extract_name(customer_name)
-    customer_name = normalize_name(customer_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
+    # customer_name = normalize_name(customer_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
+    customer_name = normalize_name_by_weight(customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT)
     profile_info["customer_name"] = customer_name
 
     customer_phone = extract_information(target, no_accent_target, CUSTOMER_PHONE_PATTERN)
@@ -458,17 +566,17 @@ def process_output(ocr_output):
     shipping_time = normalize_datetime(shipping_time)
     profile_info["shipping_time"] = shipping_time
 
-    total_quantity = extract_information(target, no_accent_target, TOTAL_QUANTITY_PATTERN)
+    total_quantity = extract_information(target, no_accent_target, TOTAL_QUANTITY_PATTERN, direct=True)
     total_quantity =  normalize_number(total_quantity)
     order_summary["total_quantity"] = total_quantity
 
-    total_amount = extract_information(target, no_accent_target, TOTAL_AMOUNT_PATTERN)
+    total_amount = extract_information(target, no_accent_target, TOTAL_AMOUNT_PATTERN, direct=True)
     total_amount =  normalize_number(total_amount)
 
-    discount = extract_information(target, no_accent_target, DISCOUNT_PATTERN)
+    discount = extract_information(target, no_accent_target, DISCOUNT_PATTERN, direct=True)
     discount =  normalize_number(discount)
     
-    monetary = extract_information(target, no_accent_target, MONETARY_PATTERN)
+    monetary = extract_information(target, no_accent_target, MONETARY_PATTERN, direct=True)
     monetary =  normalize_number(monetary)
 
     total_amount, discount, monetary = validate_and_fill_amounts(total_amount, discount, monetary)
