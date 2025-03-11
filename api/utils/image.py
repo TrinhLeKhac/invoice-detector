@@ -376,7 +376,7 @@ def process_image(image, denoise=True, binary_enhance=False, thickness=15):
         # binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=2)
         # binary = cv2.dilate(binary, kernel, iterations=1)
 
-        return rotated, cropped, table
+        return rotated, cropped, binary
 
     except Exception as e:
         print(f"Error processing image: {e}")

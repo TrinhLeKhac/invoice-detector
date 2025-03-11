@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 
-from utils.image import convert_from_base64, convert_to_base64, process_image, show_image, extract_information_from_image
+from utils.image import convert_from_base64, convert_to_base64, process_image, extract_information_from_image
 from utils.text import process_output
 
 app = Flask(__name__)
