@@ -269,6 +269,61 @@ def enhance_and_binarize(image):
 
     return final_binary
 
+
+def crop_receipt_by_detect_edges(image):
+    # Convert image to grayscale if it's not already
+    if len(image.shape) == 2:
+        gray = image
+    else:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Làm mờ để giảm nhiễu
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Apply edge detection
+    edges = cv2.Canny(blurred, 50, 150)
+
+    # Tìm contours
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Sắp xếp contours theo diện tích (lớn nhất thường là hóa đơn)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    # Lấy contour có dạng hình chữ nhật (hóa đơn)
+    for contour in contours:
+        peri = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+
+        if len(approx) == 4:  # Nếu contour có 4 đỉnh, có thể là hóa đơn
+            receipt_contour = approx
+            break
+
+    # Áp dụng Perspective Transform nếu tìm thấy hóa đơn
+    if 'receipt_contour' in locals():
+        pts = receipt_contour.reshape(4, 2)
+        
+        # Sắp xếp điểm theo thứ tự: [Top-left, Top-right, Bottom-right, Bottom-left]
+        rect = np.zeros((4, 2), dtype="float32")
+        s = pts.sum(axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
+        
+        diff = np.diff(pts, axis=1)
+        rect[1] = pts[np.argmin(diff)]
+        rect[3] = pts[np.argmax(diff)]
+
+        # Xác định kích thước hóa đơn mới
+        width = 500
+        height = 700
+        dst = np.array([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]], dtype="float32")
+
+        # Tính ma trận biến đổi và warp
+        matrix = cv2.getPerspectiveTransform(rect, dst)
+        cropped_receipt = cv2.warpPerspective(image, matrix, (width, height))
+
+        return cropped_receipt
+
+
 def preprocess_binary_image(binary_image):
     """
     1. Preprocess the binary image to remove small noise and enhance text contours. 
@@ -330,7 +385,7 @@ def preprocess_binary_image(binary_image):
         return None, cropped_binary_image
 
 
-def process_image(image, denoise=True, binary_enhance=True, rec_ctour=True, is_traditional=False):
+def process_image(image, denoise=True, binary_enhance=False, rec_ctour=True, is_traditional=True):
     """Processes an image: converts to grayscale, rotates, binarizes, finds contours, and crops."""
     try:
         # Adjust brightness
@@ -371,7 +426,7 @@ def process_image(image, denoise=True, binary_enhance=True, rec_ctour=True, is_t
                     x, y, w, h = cv2.boundingRect(max_contour)
 
                     # Draw bounding box
-                    cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                    cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 5)
 
                     # Crop image
                     cropped = rotated[y:y + h, x:x + w]
@@ -404,6 +459,7 @@ def process_image(image, denoise=True, binary_enhance=True, rec_ctour=True, is_t
             else:
                 # If no contours, keep the rotated image
                 cropped = rotated
+            # cropped = crop_receipt_by_detect_edges(binary)
 
         return denoised, binary, cropped # rotated
 
