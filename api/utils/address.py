@@ -430,7 +430,7 @@ def clean_full_address(text: str) -> str:
     return text
 
 
-def parse_address(input_address, db_provinces, db_districts, db_wards, special_ending):
+def parse_address(input_address, db_provinces, db_districts, db_wards, special_ending, debug=False):
     
     # Preprocess the address
     normalized_address = remove_punctuation(input_address, ADDRESS_PUNCTUATIONS)
@@ -549,9 +549,10 @@ def parse_address(input_address, db_provinces, db_districts, db_wards, special_e
     # Convert the normalized address to a no-accent version 
     no_accent_normalized_address = unidecode(normalized_address)
     
-    print(tmp_address)
-    print(normalized_address)
-    print(no_accent_normalized_address)
+    if debug:
+        print(tmp_address)
+        print(normalized_address)
+        print(no_accent_normalized_address)
 
     # Find address lv4 (street address) in the original address
     address_lv4 = matching_and_find_substring(normalized_address, no_accent_normalized_address, tmp_address)
@@ -559,7 +560,8 @@ def parse_address(input_address, db_provinces, db_districts, db_wards, special_e
     # Correct misspelled words
     address_lv4_no_accent = unidecode(address_lv4)
     address_lv4 = correct_misspelled_words(address_lv4, address_lv4_no_accent)
-    print(address_lv4)
+    if debug:
+        print(address_lv4)
 
     # Filter out empty values before joining
     address_parts = [address_lv4, founded_ward, founded_district, founded_province]
