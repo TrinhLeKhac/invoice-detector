@@ -239,7 +239,7 @@ def normalize_name(name: str, first_names: set, middle_names: set, last_names: s
     return " ".join(itertools.chain([first], middle, [last])).strip()
 
 
-def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, last_names: dict) -> str:
+def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, last_names: dict, debug=False) -> str:
     """
     Normalize a Vietnamese name by correcting misspellings, capitalizing words, 
     and rearranging components in the correct order: first_names (Họ) - middle_names (Chữ lót) - last_names (Tên).
@@ -276,55 +276,66 @@ def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, l
 
     if not valid_words:
         return ""
-        
-    print("Valid words: ", valid_words)
+
+    if debug:    
+        print("Valid words: ", valid_words)
     first, middle, last = "", [], ""
 
     # **Step 1: Identify the Last Name (Họ)**
     # Find exact matches in the first_names dictionary
     found_first_names = [word for word in valid_words if word in first_names]
-    print("found_first_names: ", found_first_names)
+    if debug:
+        print("found_first_names: ", found_first_names)
     
     # Find potential last names by checking for misspelled versions in first_names
     # found_first_matches = {find_best_match(word, first_names): word for word in valid_words if word not in found_first_names}
     found_first_matches = {
         match: word for word in valid_words if word not in found_first_names and (match := find_best_match(word, first_names))
     }
-    print("found_first_matches: ", found_first_matches)
+    if debug:
+        print("found_first_matches: ", found_first_matches)
     
     
     # Combine both exact and corrected last name candidates
     all_first_candidates = found_first_names + list(found_first_matches.keys())
-    print("all_matches: ", all_first_candidates)
+    if debug:
+        print("all_matches: ", all_first_candidates)
     
     # Select the last name with the highest priority score
     if all_first_candidates:
         first = max(all_first_candidates, key=lambda x: first_names[x])
-        print("Họ: ", first)
+        if debug:
+            print("Họ: ", first)
         if first in found_first_names:
-            print("Remove from first_names")
+            if debug:
+                print("Remove from first_names")
             valid_words.remove(first)  # Remove the selected last name
         else:
-            print("Remove from first_matches")
+            if debug:
+                print("Remove from first_matches")
             valid_words.remove(found_first_matches[first])  # Remove the misspelled version
             
     # **Step 2: Identify the First Name (Tên)**
     # Find exact matches for first name (including cases where it appears in first_names)
     found_last_names = [word for word in reversed(valid_words) if word in {**first_names, **last_names}]
-    print("found_last_names: ", found_last_names)
+    if debug:
+        print("found_last_names: ", found_last_names)
 
     # Select the first name with the highest priority
     if found_last_names:
         last = max(found_last_names, key=lambda x: {**first_names, **last_names}.get(x))
-        print("Tên: ", last)
+        if debug:
+            print("Tên: ", last)
         valid_words.remove(last)
     else:
-        print("Tên else")
+        if debug:
+            print("Tên else")
         for word in reversed(valid_words):
             match = find_best_match(word, {**first_names, **last_names})  
             if match:
                 last = match
-                print("Tên: ", last)
+                if debug:
+                    print("Tên: ", last)
                 valid_words.remove(word)
                 break
 
@@ -520,8 +531,8 @@ def process_output(ocr_output):
     target = clean_text_before_unidecode(ocr_output)
     no_accent_target = unidecode(target)
     # assert len(target) == len(no_accent_target)
-    print(target)
-    print(no_accent_target)
+    # print(target)
+    # print(no_accent_target)
 
     # Extract information
     created_time = extract_information(target, no_accent_target, CREATED_TIME_PATTERN)
@@ -538,13 +549,11 @@ def process_output(ocr_output):
 
     employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN)
     employee_name = extract_name(employee_name)
-    # employee_name = normalize_name(employee_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
     employee_name = normalize_name_by_weight(employee_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT)
     profile_info["employee_name"] = employee_name
 
     customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN)
     customer_name = extract_name(customer_name)
-    # customer_name = normalize_name(customer_name, FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET)
     customer_name = normalize_name_by_weight(customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT)
     profile_info["customer_name"] = customer_name
 
