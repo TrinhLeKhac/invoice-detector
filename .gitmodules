@@ -1,0 +1,6 @@
+[submodule "api/utils/models/vietocr"]
+	path = api/utils/models/vietocr
+	url = https://github.com/pbcquoc/vietocr.git
+[submodule "api/utils/models/CRAFT-pytorch"]
+	path = api/utils/models/CRAFT-pytorch
+	url = https://github.com/clovaai/CRAFT-pytorch.git

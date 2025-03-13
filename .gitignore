@@ -37,3 +37,6 @@ __pycache__/
 *.log
 *.tmp
 .DS_Store
+
+# Ignore models
+api/utils/models/*

@@ -3,9 +3,9 @@ from unidecode import unidecode
 import itertools
 from datetime import datetime
 
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+# import sys
+# from pathlib import Path
+# sys.path.insert(0, str(Path(__file__).parent))
 
 from utils.address import *
 from utils.data.province import PROVINCE_DICTIONARY
@@ -19,7 +19,7 @@ from utils.data.name import FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET, F
 SPECIAL_CHARACTER = r"=><„,.:;“”\/-_(){}|?"
 DIGIT_AND_MISSPELLED_CHAR = "\dOÔƠ,\."
 OPTIONAL_COLON = "\s*:?\s*"
-
+VOCAB = r'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
 # Regex to capture various datetime formats
 TIME_DATE_PATTERN = r"(?:(\d{2}[:]\d{2}(?::\d{2})?)\s+)?(\d{2}[\s/-]\d{2}[\s/-]\d{4})(?:\s+(\d{2}[:]\d{2}(?::\d{2})?))?"
@@ -485,7 +485,7 @@ def normalize_datetime(text):
 #         print(f"Input: {test}\nOutput: {normalize_datetime(test)}\n")
 
 
-def process_output(ocr_output):
+def process_general_information(general_information):
 
     # Define default information
     profile_info = {
@@ -499,26 +499,6 @@ def process_output(ocr_output):
         "region": "",
         "shipping_time": "",
     }
-    order_details = [
-        {
-            "product_name": "Product A",
-            "unit_price": 1000,
-            "quantity": 1,
-            "total_price": 1000,
-        },
-        {
-            "product_name": "Product B",
-            "unit_price": 1000,
-            "quantity": 2,
-            "total_price": 2000,
-        },
-        {
-            "product_name": "Product C",
-            "unit_price": 10000,
-            "quantity": 3,
-            "total_price": 30000,
-        },
-    ]
 
     order_summary = {
         "total_quantity": 0,
@@ -528,7 +508,7 @@ def process_output(ocr_output):
     }
 
     # Normalize OCR output
-    target = clean_text_before_unidecode(ocr_output)
+    target = clean_text_before_unidecode(general_information)
     no_accent_target = unidecode(target)
     # assert len(target) == len(no_accent_target)
     # print(target)
@@ -593,4 +573,28 @@ def process_output(ocr_output):
     order_summary["discount"] = discount
     order_summary["monetary"] = monetary
 
-    return profile_info, order_details, order_summary
+    return profile_info, order_summary
+
+
+def process_details_information(details_information):
+    order_details = [
+        {
+            "product_name": "Product A",
+            "unit_price": 1000,
+            "quantity": 1,
+            "total_price": 1000,
+        },
+        {
+            "product_name": "Product B",
+            "unit_price": 1000,
+            "quantity": 2,
+            "total_price": 2000,
+        },
+        {
+            "product_name": "Product C",
+            "unit_price": 10000,
+            "quantity": 3,
+            "total_price": 30000,
+        },
+    ]
+    return order_details

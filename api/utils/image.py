@@ -5,11 +5,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageEnhance
 from pytesseract import pytesseract
 from numpy import mean, argmax
 from skimage.filters import threshold_sauvola
 import pywt
+
+# import sys
+# from pathlib import Path
+# sys.path.insert(0, str(Path(__file__).parent))
+from utils.table import detect_table, detect_cells, text_recognization
+
 
 def convert_from_base64(full_base64_string):
     try:
@@ -103,6 +109,37 @@ def adjust_brightness(image, method='clahe'):
     adjusted_image = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
 
     return adjusted_image
+
+
+def enhance_contrast(img: np.ndarray, factor: float):
+    """
+    Preprocesses an image by converting it to grayscale, enhancing sharpness,
+    and optionally adjusting contrast if the image has low standard deviation.
+
+    Args:
+        img (numpy.ndarray): Input BGR image.
+        factor (float): Enhancement factor for sharpness and contrast.
+
+    Returns:
+        numpy.ndarray: Processed image.
+    """
+    # Convert to gray image
+    if len(img.shape) == 2:
+        gray = img
+    else:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Convert to PIL Image
+    pil_img = Image.fromarray(gray)
+
+    # Enhance sharpness
+    enhanced_img = ImageEnhance.Sharpness(pil_img).enhance(factor)
+
+    # Adjust contrast if the image has low contrast (std < 30)
+    if np.std(gray) < 30:
+        enhanced_img = ImageEnhance.Contrast(enhanced_img).enhance(factor)
+
+    return np.array(enhanced_img)
 
 
 def denoise_image(image, method="bilateral"):
@@ -270,121 +307,11 @@ def enhance_and_binarize(image):
     return final_binary
 
 
-def detect_table(image):
-    # Convert image to grayscale if it's not already
-    if len(image.shape) == 2:
-        gray = image
-    else:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # # Làm mờ để giảm nhiễu
-    # blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    
-    # Apply edge detection
-    edges = cv2.Canny(gray, 50, 150)
-
-    # Tìm contours
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Sắp xếp contours theo diện tích (lớn nhất thường là hóa đơn)
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-
-    # Lấy contour có dạng hình chữ nhật (hóa đơn)
-    for contour in contours:
-        peri = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
-
-        if len(approx) == 4:  # Nếu contour có 4 đỉnh, có thể là hóa đơn
-            receipt_contour = approx
-            break
-
-    # Áp dụng Perspective Transform nếu tìm thấy hóa đơn
-    if 'receipt_contour' in locals():
-        pts = receipt_contour.reshape(4, 2)
-        
-        # Sắp xếp điểm theo thứ tự: [Top-left, Top-right, Bottom-right, Bottom-left]
-        rect = np.zeros((4, 2), dtype="float32")
-        s = pts.sum(axis=1)
-        rect[0] = pts[np.argmin(s)]
-        rect[2] = pts[np.argmax(s)]
-        
-        diff = np.diff(pts, axis=1)
-        rect[1] = pts[np.argmin(diff)]
-        rect[3] = pts[np.argmax(diff)]
-
-        # Xác định kích thước hóa đơn mới
-        width = 500
-        height = 700
-        dst = np.array([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]], dtype="float32")
-
-        # Tính ma trận biến đổi và warp
-        matrix = cv2.getPerspectiveTransform(rect, dst)
-        cropped_receipt = cv2.warpPerspective(image, matrix, (width, height))
-
-        return cropped_receipt
-
-
-def process_image(image, denoise=True, binary_enhance=False, thickness=15):
-    """Processes an image: converts to grayscale, rotates, binarizes, finds contours, and crops."""
-    try:
-        # Adjust brightness
-        adjusted_image = adjust_brightness(image, method='clahe')
-
-        # Convert to grayscale
-        gray = cv2.cvtColor(adjusted_image, cv2.COLOR_BGR2GRAY)
-
-        # Denoise image
-        if denoise:
-            denoised = denoise_image(gray, method="nl_means") # bilateral ~ nl_means > wavelet
-        else:
-            denoised = gray
-
-        # Rotate image
-        rotated = deskew_image(denoised)
-
-        # Convert to binary image to FIND CONTOUR
-        # Binary (1): Vùng xung quanh (thùng hàng, ..) bị lem 
-        # => contours chính xác => crop OCR focus được vào information
-        # Tuy nhiên có lúc bị lem nhiều => cắt quá đà, bị mất thông tin
-        _, binary = cv2.threshold(rotated, 180, 255, cv2.THRESH_BINARY) 
-        
-        # Find contours in binary image
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        if contours:
-            # Get max contour
-            max_contour = max(contours, key=cv2.contourArea)
-
-            # Get bounding box
-            x, y, w, h = cv2.boundingRect(max_contour)
-
-            # # Draw bounding box
-            # cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 5)
-
-            # Crop image
-            cropped = rotated[y + thickness : y + h - thickness, x + thickness : x + w - thickness]
-        else:
-            # If no contours, keep the rotated image
-            cropped = rotated
-
-        # Binary (2): Làm rõ mặt chữ, đường net
-        binary = enhance_and_binarize(cropped)
-        # binary = denoise_image(binary, method="nl_means")
-
-        table = detect_table(binary)
-        # kernel = np.ones((3, 3), np.uint8)
-        # binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=2)
-        # binary = cv2.dilate(binary, kernel, iterations=1)
-
-        return rotated, cropped, binary
-
-    except Exception as e:
-        print(f"Error processing image: {e}")
-        # Return None values if an error occurs
-        return None, None, None  
-
-
-def extract_information_from_image(image, config="--psm 6", lang="vie"):
+def extract_information_from_image(
+        image, 
+        config="--psm 6", 
+        lang="vie"
+    ):
     """Extracts text from an image using Tesseract OCR."""
     try:
         # Open image
@@ -398,3 +325,82 @@ def extract_information_from_image(image, config="--psm 6", lang="vie"):
         print(f"Error extracting text from image: {e}")
         # Return an empty string if an error occurs
         return ""  
+
+def extract_information_from_table(table_image, table_cells):
+
+    table_information = []
+    for cell in table_cells:
+        cell_x_min, cell_y_min, cell_x_max, cell_y_max = cell
+        cell_image = table_image[cell_y_min:cell_y_max, cell_x_min:cell_x_max]
+
+        table_information.append(extract_information_from_image(cell_image))
+
+    return table_information
+
+
+def process_image(image, denoise=True, binary_enhance=False, thickness=15):
+    """Processes an image: converts to grayscale, rotates, binarizes, finds contours, and crops."""
+    # try:
+    # Adjust brightness
+    adjusted_image = adjust_brightness(image, method='clahe')
+
+    # Convert to grayscale
+    gray = cv2.cvtColor(adjusted_image, cv2.COLOR_BGR2GRAY)
+    gray = enhance_contrast(gray, factor=2)
+
+    # Denoise image
+    if denoise:
+        denoised = denoise_image(gray, method="nl_means") # bilateral ~ nl_means > wavelet
+    else:
+        denoised = gray
+
+    # Rotate image
+    rotated = deskew_image(denoised)
+
+    # Convert to binary image to FIND CONTOUR
+    # Binary (1): Vùng xung quanh (thùng hàng, ..) bị lem 
+    # => contours chính xác => crop OCR focus được vào information
+    # Tuy nhiên có lúc bị lem nhiều => cắt quá đà, bị mất thông tin
+    _, binary = cv2.threshold(rotated, 180, 255, cv2.THRESH_BINARY) 
+    
+    # Find contours in binary image
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if contours:
+        # Get max contour
+        max_contour = max(contours, key=cv2.contourArea)
+
+        # Get bounding box
+        x, y, w, h = cv2.boundingRect(max_contour)
+
+        # # Draw bounding box
+        # cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 5)
+
+        # Crop image
+        cropped = rotated[y + thickness : y + h - thickness, x + thickness : x + w - thickness] # rotated
+    else:
+        # If no contours, keep the rotated image
+        cropped = rotated
+
+    # Binary (2): Làm rõ mặt chữ, đường net
+    binary = enhance_and_binarize(cropped)
+
+    # Extract table
+    table_roi = detect_table(binary)
+    table_cells = detect_cells(table_roi)
+    print(table_cells)
+
+    # Method 1
+    # details_information = extract_information_from_table(table_roi, table_cells)
+    # print(details_information)
+
+    # Method 2
+    details_information = text_recognization(image=table_roi, table_cells=table_cells)
+    print(details_information)
+
+    return cropped, binary, table_roi, details_information
+
+    # except Exception as e:
+    #     print(f"Error processing image: {e}")
+    #     # Return None values if an error occurs
+    #     return None, None, None, None  
