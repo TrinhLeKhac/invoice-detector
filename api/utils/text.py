@@ -1,23 +1,27 @@
-import re
-from unidecode import unidecode
 import itertools
+import re
 from datetime import datetime
+
+from unidecode import unidecode
+
+from utils.address import *
+from utils.data.district import DISTRICT_DICTIONARY
+from utils.data.name import (FIRST_NAMES_DICT, FIRST_NAMES_SET,
+                             LAST_NAMES_DICT, LAST_NAMES_SET,
+                             MIDDLE_NAMES_DICT, MIDDLE_NAMES_SET)
+from utils.data.province import PROVINCE_DICTIONARY
+from utils.data.ward import WARD_DICTIONARY
 
 # import sys
 # from pathlib import Path
 # sys.path.insert(0, str(Path(__file__).parent))
 
-from utils.address import *
-from utils.data.province import PROVINCE_DICTIONARY
-from utils.data.district import DISTRICT_DICTIONARY
-from utils.data.ward import WARD_DICTIONARY
 
-from utils.data.name import FIRST_NAMES_SET, MIDDLE_NAMES_SET, LAST_NAMES_SET, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
 
 # Regex patterns to extract information
 
 SPECIAL_CHARACTER = r"=><„,.:;“”\/-_(){}|?"
-DIGIT_AND_MISSPELLED_CHAR = "\dOÔƠ,\."
+DIGIT_AND_MISSPELLED_CHAR = "\dOÔƠ,\.\s"
 OPTIONAL_COLON = "\s*:?\s*"
 VOCAB = r'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
 
@@ -27,7 +31,9 @@ TIME_DATE_PATTERN = r"(?:(\d{2}[:]\d{2}(?::\d{2})?)\s+)?(\d{2}[\s/-]\d{2}[\s/-]\
 CREATED_TIME_PATTERN = r"(?:(?:hoa don ban hang)[^0-9]*)?(\d{1,2}\s*[/:.-]\s*\d{1,2}\s*[/:.-]\s*\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?|\d{1,2}:\d{2}(?::\d{2})?\s+\d{1,2}\s*[/:.-]\s*\d{1,2}\s*[/:.-]\s*\d{4})"
 SHOP_NAME_PATTERN = rf"(?:s\s*hop){OPTIONAL_COLON}(.*?)(?:hot\s*line)"
 HOTLINE_PATTERN = rf"(?:hot\s*line){OPTIONAL_COLON}(.*?)(?:nhan\s*vien\s*ban\s*hang)"
-EMPLOYEE_NAME_PATTERN = rf"(?:nhan\s*vien\s*ban\s*hang){OPTIONAL_COLON}(.*?)(?:khach\s*hang)"
+EMPLOYEE_NAME_PATTERN = (
+    rf"(?:nhan\s*vien\s*ban\s*hang){OPTIONAL_COLON}(.*?)(?:khach\s*hang)"
+)
 CUSTOMER_NAME_PATTERN = rf"(?:khach\s*hang){OPTIONAL_COLON}(.*?)(?:s\s*dt)"
 CUSTOMER_PHONE_PATTERN = rf"(?:s\s*dt){OPTIONAL_COLON}(.*?)(?:dia\s*chi)"
 
@@ -47,36 +53,38 @@ MONETARY_PATTERN = rf"t[ôoòóỏọõốồổỗộơờớởỡợ]ng\s*c[o
 
 
 def clean_text_before_unidecode(text):
-
     """
     Cleans the text by removing:
     - Special characters that may expand (e.g., œ -> oe)
     - Emojis
-    - Invisible whitespace characters (\u200b, \u00A0)
-    - Soft hyphen (\u00AD)
+    - Invisible whitespace characters (\u200b, \u00a0)
+    - Soft hyphen (\u00ad)
     """
 
     # # Remove special characters (keeps only letters, digits, and spaces)
     # text = re.sub(r'[^A-Za-zÀ-ỹ0-9\s]', '', text)
 
     # Remove emojis using regex (matches all Unicode emoji ranges)
-    text = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0\U000024C2-\U0001F251]', '', text)
-    
+    text = re.sub(
+        r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0\U000024C2-\U0001F251]",
+        "",
+        text,
+    )
+
     # Remove invisible whitespace characters and soft hyphen
-    text = re.sub(r'[\u200b\u00A0\u00AD]', '', text)
-    
+    text = re.sub(r"[\u200b\u00A0\u00AD]", "", text)
+
     # Normalize spaces
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
 
     return text
 
 
-def extract_information(target, no_accent_target, pattern, direct=False):    
-
+def extract_information(target, no_accent_target, pattern, direct=False):
     """
     Extracts the desired information from `target` using regex on `no_accent_target`.
 
-    This function applies the regex pattern to `no_accent_target`, then retrieves 
+    This function applies the regex pattern to `no_accent_target`, then retrieves
     the corresponding substring from `target` based on the matched index range.
 
     Args:
@@ -90,13 +98,13 @@ def extract_information(target, no_accent_target, pattern, direct=False):
 
     if direct:
         match = re.search(pattern, target, re.IGNORECASE)
-    
+
         if match:
             return match.group(1)  # Capture the first group
         return ""
     else:
         match = re.search(pattern, no_accent_target, re.IGNORECASE)
-        
+
         if match:
             # Get the start and end indices of the captured group in `no_accent_target`
             start_idx = match.start(1)
@@ -104,13 +112,12 @@ def extract_information(target, no_accent_target, pattern, direct=False):
 
             # Extract the corresponding substring from the original `target`
             information = target[start_idx:end_idx]
-            
+
             return information
         return ""
 
 
 def extract_and_normalize_phone_numbers(text):
-
     """
     Extracts and normalizes phone numbers from a given text.
 
@@ -132,18 +139,17 @@ def extract_and_normalize_phone_numbers(text):
 
     # Matches phone numbers starting with +084, +84, or 0 and followed by 9 or 10 digits
     pattern = r"\b(?:\+084|\+84|0)(\d{9,10})\b"
-    
+
     # Get list of matched numbers
     matches = re.findall(pattern, text)
-    
+
     # Replace +84, +084 with 0
-    normalized_numbers = ["0" + num for num in matches]  
-    
+    normalized_numbers = ["0" + num for num in matches]
+
     return normalized_numbers
 
 
 def extract_name(text):
-
     """
     Extracts and cleans a name from a given text by removing unwanted characters.
 
@@ -160,16 +166,18 @@ def extract_name(text):
 
     # Remove special characters, keeping only letters (including accents) and spaces
     cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ\s]", "", text)
-    
+
     # Normalize spaces (convert multiple spaces to a single space)
     cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
-    
+
     return cleaned_text
 
 
-def normalize_name(name: str, first_names: set, middle_names: set, last_names: set) -> str:
+def normalize_name(
+    name: str, first_names: set, middle_names: set, last_names: set
+) -> str:
     """
-    Normalize a Vietnamese name by correcting misspellings, capitalizing words, 
+    Normalize a Vietnamese name by correcting misspellings, capitalizing words,
     and rearranging components in the correct order: Last Name - Middle Name(s) - First Name.
 
     Args:
@@ -184,11 +192,17 @@ def normalize_name(name: str, first_names: set, middle_names: set, last_names: s
 
     def find_best_match(word, valid_set):
         """Find the best match for a word in the given set by comparing its non-accented version."""
-        candidates = [vn_name for vn_name in valid_set if unidecode(vn_name).lower() == unidecode(word).lower()]
+        candidates = [
+            vn_name
+            for vn_name in valid_set
+            if unidecode(vn_name).lower() == unidecode(word).lower()
+        ]
         return candidates[0] if candidates else None
 
     words = name.split()
-    words = [word.capitalize() for word in words]  # Capitalize the first letter of each word
+    words = [
+        word.capitalize() for word in words
+    ]  # Capitalize the first letter of each word
 
     # Remove invalid words
     valid_words = []
@@ -239,9 +253,11 @@ def normalize_name(name: str, first_names: set, middle_names: set, last_names: s
     return " ".join(itertools.chain([first], middle, [last])).strip()
 
 
-def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, last_names: dict, debug=False) -> str:
+def normalize_name_by_weight(
+    name: str, first_names: dict, middle_names: dict, last_names: dict, debug=False
+) -> str:
     """
-    Normalize a Vietnamese name by correcting misspellings, capitalizing words, 
+    Normalize a Vietnamese name by correcting misspellings, capitalizing words,
     and rearranging components in the correct order: first_names (Họ) - middle_names (Chữ lót) - last_names (Tên).
 
     Args:
@@ -256,13 +272,21 @@ def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, l
 
     def find_best_match(word, valid_dict):
         """Find the best match for a word in the given dictionary by comparing its non-accented version."""
-        candidates = [vn_name for vn_name in valid_dict if unidecode(vn_name).lower() == unidecode(word).lower()]
+        candidates = [
+            vn_name
+            for vn_name in valid_dict
+            if unidecode(vn_name).lower() == unidecode(word).lower()
+        ]
         if candidates:
-            return max(candidates, key=lambda x: valid_dict[x])  # Choose the one with the highest priority
+            return max(
+                candidates, key=lambda x: valid_dict[x]
+            )  # Choose the one with the highest priority
         return None
 
     words = name.split()
-    words = [word.capitalize() for word in words]  # Capitalize the first letter of each word
+    words = [
+        word.capitalize() for word in words
+    ]  # Capitalize the first letter of each word
 
     # Remove invalid words and correct misspellings
     valid_words = []
@@ -270,14 +294,14 @@ def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, l
         if word in first_names or word in middle_names or word in last_names:
             valid_words.append(word)  # Keep valid words
         else:
-            match = find_best_match(word, {**first_names, **middle_names, **last_names})  
+            match = find_best_match(word, {**first_names, **middle_names, **last_names})
             if match:
                 valid_words.append(match)  # Replace misspelled words with best matches
 
     if not valid_words:
         return ""
 
-    if debug:    
+    if debug:
         print("Valid words: ", valid_words)
     first, middle, last = "", [], ""
 
@@ -286,21 +310,23 @@ def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, l
     found_first_names = [word for word in valid_words if word in first_names]
     if debug:
         print("found_first_names: ", found_first_names)
-    
+
     # Find potential last names by checking for misspelled versions in first_names
     # found_first_matches = {find_best_match(word, first_names): word for word in valid_words if word not in found_first_names}
     found_first_matches = {
-        match: word for word in valid_words if word not in found_first_names and (match := find_best_match(word, first_names))
+        match: word
+        for word in valid_words
+        if word not in found_first_names
+        and (match := find_best_match(word, first_names))
     }
     if debug:
         print("found_first_matches: ", found_first_matches)
-    
-    
+
     # Combine both exact and corrected last name candidates
     all_first_candidates = found_first_names + list(found_first_matches.keys())
     if debug:
         print("all_matches: ", all_first_candidates)
-    
+
     # Select the last name with the highest priority score
     if all_first_candidates:
         first = max(all_first_candidates, key=lambda x: first_names[x])
@@ -313,11 +339,15 @@ def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, l
         else:
             if debug:
                 print("Remove from first_matches")
-            valid_words.remove(found_first_matches[first])  # Remove the misspelled version
-            
+            valid_words.remove(
+                found_first_matches[first]
+            )  # Remove the misspelled version
+
     # **Step 2: Identify the First Name (Tên)**
     # Find exact matches for first name (including cases where it appears in first_names)
-    found_last_names = [word for word in reversed(valid_words) if word in {**first_names, **last_names}]
+    found_last_names = [
+        word for word in reversed(valid_words) if word in {**first_names, **last_names}
+    ]
     if debug:
         print("found_last_names: ", found_last_names)
 
@@ -331,7 +361,7 @@ def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, l
         if debug:
             print("Tên else")
         for word in reversed(valid_words):
-            match = find_best_match(word, {**first_names, **last_names})  
+            match = find_best_match(word, {**first_names, **last_names})
             if match:
                 last = match
                 if debug:
@@ -345,9 +375,7 @@ def normalize_name_by_weight(name: str, first_names: dict, middle_names: dict, l
     return " ".join(itertools.chain([first], middle, [last])).strip()
 
 
-
 def extract_address(text):
-
     """
     Extracts and cleans an address by removing unwanted characters.
 
@@ -368,10 +396,10 @@ def extract_address(text):
 
     # Keep only letters, numbers, spaces, commas, slashes, and hyphens
     cleaned_text = re.sub(r"[^a-zA-ZÀ-ỹ0-9,\-\/\s]", "", text)
-    
+
     # Normalize spaces (convert multiple spaces to a single space)
     cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
-    
+
     return cleaned_text
 
 
@@ -382,14 +410,14 @@ def normalize_number(currency_str):
     - Removing thousand separators (`,` or `.`)
     - Keeping decimal points if present
     - Converting the cleaned string to a float or int
-    
+
     Returns:
         int if no decimal part, otherwise float.
         Returns -1 if the input is not a valid number.
     """
     if not currency_str:
         return -1  # Handle empty string case
-    
+
     # Replace 'O', 'Ô', 'Ơ' (common OCR errors) with '0'
     currency_str = re.sub(r"[OÔƠ]", "0", currency_str, flags=re.IGNORECASE)
 
@@ -406,7 +434,7 @@ def normalize_number(currency_str):
 
 def validate_and_fill_amounts(total_amount, discount, monetary):
     """
-    Validates and fills missing values for total_amount, discount, and monetary 
+    Validates and fills missing values for total_amount, discount, and monetary
     based on the condition: total_amount = discount + monetary.
 
     Conditions:
@@ -436,7 +464,7 @@ def normalize_datetime(text):
     match = re.search(TIME_DATE_PATTERN, text)
     if match:
         time_part_1 = match.group(1)  # Case where the time appears before the date
-        date_part = match.group(2)    # Date in DD/MM/YYYY or DD-MM-YYYY format
+        date_part = match.group(2)  # Date in DD/MM/YYYY or DD-MM-YYYY format
         time_part_2 = match.group(3)  # Case where the time appears after the date
 
         # Select the correct time part (prioritizing the one after the date)
@@ -518,33 +546,45 @@ def process_general_information(general_information):
     created_time = extract_information(target, no_accent_target, CREATED_TIME_PATTERN)
     created_time = normalize_datetime(created_time)
     profile_info["created_time"] = created_time
-    
+
     shop_name = extract_information(target, no_accent_target, SHOP_NAME_PATTERN)
     shop_name = extract_name(shop_name)
     profile_info["shop_name"] = shop_name
 
     hotline = extract_information(target, no_accent_target, HOTLINE_PATTERN)
-    lst_hotline =  extract_and_normalize_phone_numbers(hotline)
+    lst_hotline = extract_and_normalize_phone_numbers(hotline)
     profile_info["hotline"] = lst_hotline
 
     employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN)
     employee_name = extract_name(employee_name)
-    employee_name = normalize_name_by_weight(employee_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT)
+    employee_name = normalize_name_by_weight(
+        employee_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
+    )
     profile_info["employee_name"] = employee_name
 
     customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN)
     customer_name = extract_name(customer_name)
-    customer_name = normalize_name_by_weight(customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT)
+    customer_name = normalize_name_by_weight(
+        customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
+    )
     profile_info["customer_name"] = customer_name
 
-    customer_phone = extract_information(target, no_accent_target, CUSTOMER_PHONE_PATTERN)
-    lst_customer_phone =  extract_and_normalize_phone_numbers(customer_phone)
+    customer_phone = extract_information(
+        target, no_accent_target, CUSTOMER_PHONE_PATTERN
+    )
+    lst_customer_phone = extract_and_normalize_phone_numbers(customer_phone)
     if len(lst_customer_phone) > 0:
         profile_info["customer_phone"] = lst_customer_phone[0]
-    
+
     address = extract_information(target, no_accent_target, ADDRESS_PATTERN)
     address = extract_address(address)
-    address = parse_address(address, PROVINCE_DICTIONARY, DISTRICT_DICTIONARY, WARD_DICTIONARY, SPECIAL_ENDING)
+    address = parse_address(
+        address,
+        PROVINCE_DICTIONARY,
+        DISTRICT_DICTIONARY,
+        WARD_DICTIONARY,
+        SPECIAL_ENDING,
+    )
     profile_info["address"] = address
 
     region = extract_information(target, no_accent_target, REGION_PATTERN)
@@ -555,20 +595,30 @@ def process_general_information(general_information):
     shipping_time = normalize_datetime(shipping_time)
     profile_info["shipping_time"] = shipping_time
 
-    total_quantity = extract_information(target, no_accent_target, TOTAL_QUANTITY_PATTERN, direct=True)
-    total_quantity =  normalize_number(total_quantity)
+    total_quantity = extract_information(
+        target, no_accent_target, TOTAL_QUANTITY_PATTERN, direct=True
+    )
+    total_quantity = normalize_number(total_quantity)
     order_summary["total_quantity"] = total_quantity
 
-    total_amount = extract_information(target, no_accent_target, TOTAL_AMOUNT_PATTERN, direct=True)
-    total_amount =  normalize_number(total_amount)
+    total_amount = extract_information(
+        target, no_accent_target, TOTAL_AMOUNT_PATTERN, direct=True
+    )
+    total_amount = normalize_number(total_amount)
 
-    discount = extract_information(target, no_accent_target, DISCOUNT_PATTERN, direct=True)
-    discount =  normalize_number(discount)
-    
-    monetary = extract_information(target, no_accent_target, MONETARY_PATTERN, direct=True)
-    monetary =  normalize_number(monetary)
+    discount = extract_information(
+        target, no_accent_target, DISCOUNT_PATTERN, direct=True
+    )
+    discount = normalize_number(discount)
 
-    total_amount, discount, monetary = validate_and_fill_amounts(total_amount, discount, monetary)
+    monetary = extract_information(
+        target, no_accent_target, MONETARY_PATTERN, direct=True
+    )
+    monetary = normalize_number(monetary)
+
+    total_amount, discount, monetary = validate_and_fill_amounts(
+        total_amount, discount, monetary
+    )
     order_summary["total_amount"] = total_amount
     order_summary["discount"] = discount
     order_summary["monetary"] = monetary

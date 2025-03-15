@@ -1,26 +1,22 @@
-import os
+import base64
 import re
+
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-import base64
-from io import BytesIO
-from PIL import Image, ImageEnhance
+from numpy import mean
 from pytesseract import pytesseract
-from numpy import mean, argmax
 from skimage.filters import threshold_sauvola
-import pywt
 
-# import sys
-# from pathlib import Path
-# sys.path.insert(0, str(Path(__file__).parent))
-from utils.table import detect_table, detect_cells, text_recognization
+from utils.table import detect_cells, detect_table
 
 
 def convert_from_base64(full_base64_string):
     try:
-        match = re.match(r"data:image/(?P<format>png|jpeg|jpg);base64,(?P<data>.+)", full_base64_string)
-    
+        match = re.match(
+            r"data:image/(?P<format>png|jpeg|jpg);base64,(?P<data>.+)",
+            full_base64_string,
+        )
+
         if not match:
             raise ValueError("Invalid base64 string or wrong format image!")
 
@@ -65,120 +61,93 @@ def convert_to_base64(image, format=".jpg"):
 
         # Add prefix for Data URI
         return f"data:image/{format};base64,{base64_str}"
-    
+
     except Exception as e:
         print(f"Error encoding image to base64: {e}")
         return None
 
 
-def adjust_brightness(image, method='clahe'):
-    """
-    Adjusts brightness using either CLAHE or histogram equalization.
-    Additionally applies Adaptive Gamma Correction to enhance visibility.
+def invert(image):
+    """Inverts the colors of an image using bitwise NOT operation.
 
     Args:
-        image (numpy.ndarray): Input image.
-        method (str): Brightness correction method ('clahe' or 'histogram').
+        image (np.ndarray): Input image (grayscale or color).
 
     Returns:
-        numpy.ndarray: Brightness-adjusted image.
+        np.ndarray: Inverted image.
     """
-
-    # Convert the image to HSV color space to adjust brightness in the Value (V) channel.
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
-
-    # Apply the chosen brightness enhancement method.
-    if method == 'histogram':  
-        v = cv2.equalizeHist(v)  # Standard histogram equalization.
-    
-    # CLAHE (Contrast Limited Adaptive Histogram Equalization) improves brightness locally,
-    # preventing over-enhancement in certain regions.
-    elif method == 'clahe':  
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        v = clahe.apply(v)
-
-    # Adaptive Gamma Correction adjusts brightness adaptively based on image intensity.
-    # If the image is too dark (mean < 100), apply a gamma of 1.5 to brighten it.
-    gamma = 1.5 if np.mean(v) < 100 else 1.0  
-    v = np.power(v / 255.0, gamma) * 255.0  # Apply gamma correction.
-    v = np.clip(v, 0, 255).astype(np.uint8)  # Ensure pixel values remain within [0, 255].
-
-    # Merge the adjusted Value channel back into the HSV image and convert it back to BGR.
-    adjusted_hsv = cv2.merge([h, s, v])
-    adjusted_image = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
-
-    return adjusted_image
+    inverted_image = cv2.bitwise_not(image)
+    return inverted_image
 
 
-def enhance_contrast(img: np.ndarray, factor: float):
-    """
-    Preprocesses an image by converting it to grayscale, enhancing sharpness,
-    and optionally adjusting contrast if the image has low standard deviation.
+def grayscale(image):
+    """Converts a color image to grayscale if it's not already.
 
     Args:
-        img (numpy.ndarray): Input BGR image.
-        factor (float): Enhancement factor for sharpness and contrast.
+        image (np.ndarray): Input image (grayscale or BGR color).
 
     Returns:
-        numpy.ndarray: Processed image.
-    """
-    # Convert to gray image
-    if len(img.shape) == 2:
-        gray = img
-    else:
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Convert to PIL Image
-    pil_img = Image.fromarray(gray)
-
-    # Enhance sharpness
-    enhanced_img = ImageEnhance.Sharpness(pil_img).enhance(factor)
-
-    # Adjust contrast if the image has low contrast (std < 30)
-    if np.std(gray) < 30:
-        enhanced_img = ImageEnhance.Contrast(enhanced_img).enhance(factor)
-
-    return np.array(enhanced_img)
-
-
-def denoise_image(image, method="bilateral"):
-    """
-    Applies noise reduction on a grayscale image using an optimal denoising technique.
-
-    Args:
-        image (numpy.ndarray): Grayscale input image or BGR image.
-        method (str): Denoising method: "bilateral", "nl_means", "wavelet".
-
-    Returns:
-        numpy.ndarray: Denoised image.
+        np.ndarray: Grayscale image.
     """
 
-    # Convert image to grayscale if it's not already
+    # Check if the image is already grayscale (2D array)
     if len(image.shape) == 2:
         gray = image
     else:
+        # Convert BGR to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    if method == "bilateral":
-        # Bilateral filter: Removes noise while preserving edges
-        denoised = cv2.bilateralFilter(gray, d=9, sigmaColor=75, sigmaSpace=75)
+    return gray
 
-    elif method == "nl_means":
-        # Non-Local Means Denoising: Effective for Gaussian noise
-        denoised = cv2.fastNlMeansDenoising(gray, h=10, templateWindowSize=7, searchWindowSize=21)
 
-    elif method == "wavelet":
-        # Wavelet denoising: Advanced method for preserving fine details
-        coeffs = pywt.wavedec2(gray, 'db1', level=2)
-        coeffs_H = list(map(lambda x: tuple(np.where(np.abs(x) < 10, 0, x) for x in x), coeffs[1:]))
-        denoised = pywt.waverec2((coeffs[0], *coeffs_H), 'db1')
-        denoised = np.clip(denoised, 0, 255).astype(np.uint8)
+def denoise(image, kernel_size=(1, 1), iterations=1, ksize=3):
+    """Removes noise from an image using morphological operations and median filtering.
 
-    else:
-        raise ValueError("Invalid method! Choose from 'bilateral', 'nl_means', or 'wavelet'.")
+    Args:
+        image (np.ndarray): Input image (grayscale or binary).
+        kernel_size (tuple): Size of the kernel used for morphological operations.
+        iterations (int): Number of times dilation and erosion are applied.
 
-    return denoised
+    Returns:
+        np.ndarray: The processed image with reduced noise.
+    """
+
+    # Validate input image
+    if image is None or not isinstance(image, np.ndarray):
+        raise ValueError("Input image must be a valid numpy array.")
+
+    # Create a kernel (structuring element) for morphological operations
+    kernel = np.ones(kernel_size, np.uint8)
+
+    # Apply dilation (expands bright areas) to remove small black noise
+    cleaned = cv2.dilate(image, kernel, iterations=iterations)
+
+    # Apply erosion (shrinks bright areas) to remove small white noise
+    cleaned = cv2.erode(cleaned, kernel, iterations=iterations)
+
+    # Apply morphological closing (dilation followed by erosion) to close small holes in objects
+    cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_CLOSE, kernel)
+
+    # Apply median blur to remove salt-and-pepper noise
+    cleaned = cv2.medianBlur(cleaned, ksize=ksize)
+
+    return cleaned
+
+
+def thin_font(image, kernel_size=(2, 2), iterations=1):
+    image = cv2.bitwise_not(image)
+    kernel = np.ones(kernel_size, np.uint8)
+    image = cv2.erode(image, kernel=kernel, iterations=iterations)
+    image = cv2.bitwise_not(image)
+    return image
+
+
+def thick_font(image, kernel_size=(2, 2), iterations=1):
+    image = cv2.bitwise_not(image)
+    kernel = np.ones(kernel_size, np.uint8)
+    image = cv2.dilate(image, kernel=kernel, iterations=iterations)
+    image = cv2.bitwise_not(image)
+    return image
 
 
 def get_rotation_angle(image, angle_threshold=15):
@@ -187,11 +156,8 @@ def get_rotation_angle(image, angle_threshold=15):
     This method detects straight lines and estimates the median rotation angle.
     """
     # Convert image to grayscale if it's not already
-    if len(image.shape) == 2:
-        gray = image
-    else:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
+    gray = grayscale(image)
+
     # Apply edge detection
     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
@@ -205,17 +171,17 @@ def get_rotation_angle(image, angle_threshold=15):
             angle = np.rad2deg(theta) - 90  # Convert radian to degree
 
             # Filter out extreme angles that might cause incorrect rotations
-            if -angle_threshold < angle < angle_threshold:  
+            if -angle_threshold < angle < angle_threshold:
                 angles.append(angle)
 
     if angles:
         median_angle = np.median(angles)
-        
+
         # Ensure that the angle is not leading to incorrect horizontal rotations
         if (median_angle < -angle_threshold) or (median_angle > angle_threshold):
             return 0  # Ignore extreme incorrect angles
-        
-        return median_angle  
+
+        return median_angle
 
     return 0  # Return 0 if no rotation is detected
 
@@ -242,8 +208,13 @@ def rotate_image(image, angle):
     rotation_matrix[1, 2] += (new_h / 2) - center[1]
 
     # Perform the rotation
-    rotated_image = cv2.warpAffine(image, rotation_matrix, (new_w, new_h), 
-                                   flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    rotated_image = cv2.warpAffine(
+        image,
+        rotation_matrix,
+        (new_w, new_h),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
 
     return rotated_image
 
@@ -253,19 +224,21 @@ def deskew_image(image):
     Detect and correct the skew of an image.
     Ensures that the rotation does not flip the image sideways.
     """
-    angle = get_rotation_angle(image)  # Detect rotation angle
+
+    angle = get_rotation_angle(image)
     print(angle)
     if abs(angle) < 0.1:  # If angle is too small, no rotation is needed
         return image
 
     corrected_image = rotate_image(image, angle)
+
     return corrected_image
 
 
-def enhance_and_binarize(image):
+def binarize(image):
     """
     Enhances brightness using Adaptive Gamma Correction and applies adaptive binarization.
-    
+
     Args:
         image (numpy.ndarray): Input image.
 
@@ -274,30 +247,26 @@ def enhance_and_binarize(image):
     """
 
     # Convert image to grayscale if it's not already
-    if len(image.shape) == 2:
-        gray = image
-    else:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = grayscale(image)
 
-    # ---- Step 1: Adaptive Gamma Correction ----
+    # ---- Step 1: Adaptive Gamma Correction ---- Ạdjust brightness based on Gamma
     mean_intensity = np.mean(gray)
-    gamma = 1.5 if mean_intensity < 100 else 1.0  
+    gamma = 1.5 if mean_intensity < 100 else 1.0
     gamma_corrected = np.power(gray / 255.0, gamma) * 255.0
     gamma_corrected = np.clip(gamma_corrected, 0, 255).astype(np.uint8)
 
-    # ---- Step 2: Adaptive Thresholding ----
+    # ---- Step 2: Adaptive Thresholding ----  Apply local threshold
     binary_adaptive = cv2.adaptiveThreshold(
-        gamma_corrected, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-        cv2.THRESH_BINARY, 31, 10  # Fine-tune blockSize & C
+        gamma_corrected,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        41,
+        5,  # Fine-tune blockSize & C
     )
 
-    # # ---- Step 3: Otsu’s Thresholding (Optional) ----
-    # _, binary_otsu = cv2.threshold(
-    #     gamma_corrected, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    # )
-
-    # ---- Step 4: Sauvola Binarization (Advanced) ----
-    window_size = 25  # Window size for local thresholding
+    # ---- Step 3: Sauvola Binarization (Advanced) ---- Giúp giữ chi tiết tốt hơn trong vùng có độ tương phản thấp
+    window_size = 15  # Window size for local thresholding
     thresh_sauvola = threshold_sauvola(gamma_corrected, window_size=window_size)
     binary_sauvola = (gamma_corrected > thresh_sauvola).astype(np.uint8) * 255
 
@@ -307,11 +276,7 @@ def enhance_and_binarize(image):
     return final_binary
 
 
-def extract_information_from_image(
-        image, 
-        config="--psm 6", 
-        lang="vie"
-    ):
+def extract_information_from_image(image, config="--psm 6", lang="vie"):
     """Extracts text from an image using Tesseract OCR."""
     try:
         # Open image
@@ -324,7 +289,8 @@ def extract_information_from_image(
     except Exception as e:
         print(f"Error extracting text from image: {e}")
         # Return an empty string if an error occurs
-        return ""  
+        return ""
+
 
 def extract_information_from_table(table_image, table_cells):
 
@@ -338,31 +304,90 @@ def extract_information_from_table(table_image, table_cells):
     return table_information
 
 
-def process_image(image, denoise=True, binary_enhance=False, thickness=15):
+def remove_shadow(image):
+
+    rgb_planes = cv2.split(image)
+
+    result_planes = []
+    result_threshold_planes = []
+    for plane in rgb_planes:
+        # Dilate the image, in order to get rid of the text
+        dilated_img = cv2.dilate(plane, np.ones((7, 7), np.uint8))
+
+        # Median blur the result with a decent sized kernel to further suppress any text.
+        bg_img = cv2.medianBlur(dilated_img, 21)
+
+        # Since we want black on white, we invert the result
+        diff_img = 255 - cv2.absdiff(plane, bg_img)
+
+        # Normalize the image, so that we use the full dynamic range.
+        norm_img = diff_img.copy()  # Needed for 3.x compatibility
+        cv2.normalize(
+            diff_img,
+            norm_img,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8UC1,
+        )
+
+        # At this point we still have the paper somewhat gray. We can truncate that away, and re-normalize the image.
+        _, thr_img = cv2.threshold(norm_img, 230, 0, cv2.THRESH_TRUNC)
+        cv2.normalize(
+            thr_img,
+            thr_img,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8UC1,
+        )
+
+        result_planes.append(diff_img)
+        result_threshold_planes.append(thr_img)
+
+    result = cv2.merge(result_planes)
+    result_thresh = cv2.merge(result_threshold_planes)
+
+    return result_thresh
+
+
+def enhance_text_edges(image):
+
+    w = image.shape[1]
+    h = image.shape[0]
+    w1 = int(w * 0.05)
+    w2 = int(w * 0.95)
+    h1 = int(h * 0.05)
+    h2 = int(h * 0.95)
+    ROI = image[h1:h2, w1:w2]  # 95% of center of the image
+    threshold = np.mean(ROI) * 0.98  # 98% of average brightness
+
+    gray = grayscale(image)
+    blurred = cv2.GaussianBlur(gray, (1, 1), 0)
+    edged = 255 - cv2.Canny(blurred, 100, 150, apertureSize=7)
+
+    thresh, binary = cv2.threshold(blurred, threshold, 255, cv2.THRESH_BINARY)
+    return binary
+
+
+def process_image(image, thickness=0):
     """Processes an image: converts to grayscale, rotates, binarizes, finds contours, and crops."""
     # try:
-    # Adjust brightness
-    adjusted_image = adjust_brightness(image, method='clahe')
+
+    # Remove shadow
+    # adjusted_image = remove_shadow(image)
 
     # Convert to grayscale
-    gray = cv2.cvtColor(adjusted_image, cv2.COLOR_BGR2GRAY)
-    gray = enhance_contrast(gray, factor=2)
+    gray = grayscale(image)
 
-    # Denoise image
-    if denoise:
-        denoised = denoise_image(gray, method="nl_means") # bilateral ~ nl_means > wavelet
-    else:
-        denoised = gray
-
-    # Rotate image
-    rotated = deskew_image(denoised)
+    gray_cp = gray.copy()
 
     # Convert to binary image to FIND CONTOUR
-    # Binary (1): Vùng xung quanh (thùng hàng, ..) bị lem 
+    # Binary (1): Vùng xung quanh (thùng hàng, ..) bị lem
     # => contours chính xác => crop OCR focus được vào information
     # Tuy nhiên có lúc bị lem nhiều => cắt quá đà, bị mất thông tin
-    _, binary = cv2.threshold(rotated, 180, 255, cv2.THRESH_BINARY) 
-    
+    _, binary = cv2.threshold(gray_cp, 180, 255, cv2.THRESH_BINARY)
+
     # Find contours in binary image
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -377,30 +402,42 @@ def process_image(image, denoise=True, binary_enhance=False, thickness=15):
         # cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 5)
 
         # Crop image
-        cropped = rotated[y + thickness : y + h - thickness, x + thickness : x + w - thickness] # rotated
+        cropped = gray[
+            y + thickness : y + h - thickness, x + thickness : x + w - thickness
+        ]  # rotated
     else:
         # If no contours, keep the rotated image
-        cropped = rotated
+        cropped = gray
 
-    # Binary (2): Làm rõ mặt chữ, đường net
-    binary = enhance_and_binarize(cropped)
+    # Remove bóng
+    non_shadow = remove_shadow(cropped)
+
+    # Xoay hình
+    deskewed = deskew_image(non_shadow)
+
+    # Remove noise
+    denoised = denoise(deskewed, kernel_size=(1, 1), iterations=1, ksize=1)
+
+    # enhance text-edge
+    enhanced = enhance_text_edges(denoised)  # binary image
+
+    # Binary image
+    # binary = binarize(enhanced)
 
     # Extract table
-    table_roi = detect_table(binary)
+    table_roi = detect_table(enhanced)  # denoised | enhanced
+    # table_roi = thick_font(table_roi)
+    # table_roi = invert(table_roi)
+
     table_cells = detect_cells(table_roi)
     print(table_cells)
 
-    # Method 1
-    # details_information = extract_information_from_table(table_roi, table_cells)
-    # print(details_information)
-
-    # Method 2
-    details_information = text_recognization(image=table_roi, table_cells=table_cells)
+    details_information = extract_information_from_table(table_roi, table_cells)
     print(details_information)
 
-    return cropped, binary, table_roi, details_information
+    return denoised, enhanced, table_roi
 
     # except Exception as e:
     #     print(f"Error processing image: {e}")
     #     # Return None values if an error occurs
-    #     return None, None, None, None  
+    #     return None, None, None, None
