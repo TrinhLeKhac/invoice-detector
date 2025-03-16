@@ -18,10 +18,10 @@ def predict():
     image = convert_from_base64(image_encoded_str)
     print(image.shape)
 
-    cropped, binary, table_roi, table_information = processing_image(image)
+    cropped, deskewed, table_roi, table_information = processing_image(image)
 
     p1_image_encoded_str = convert_to_base64(cropped)
-    p2_image_encoded_str = convert_to_base64(binary)
+    p2_image_encoded_str = convert_to_base64(deskewed)
     p3_image_encoded_str = convert_to_base64(table_roi)
 
     general_information = parse_general_information(cropped)

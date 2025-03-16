@@ -152,7 +152,7 @@ def seg_intersect(p1, p2, p3, p4):
     return int(intersection[0]), int(intersection[1])
 
 
-def detect_cells(image, thin_thresh=5):
+def detect_cells(image, thin_thresh=5, threshold=30):
     """
     Detects table cells in a binary image.
 
@@ -205,8 +205,8 @@ def detect_cells(image, thin_thresh=5):
         v_lines = []
 
     # Extend lines
-    h_lines = group_h_lines(h_lines, thin_thresh)
-    v_lines = group_v_lines(v_lines, thin_thresh)
+    h_lines = group_h_lines(h_lines, thin_thresh=thin_thresh)
+    v_lines = group_v_lines(v_lines, thin_thresh=thin_thresh)
 
     # Find intersection points
     points = []
@@ -259,8 +259,8 @@ def detect_cells(image, thin_thresh=5):
         )
 
         # Remove close values
-        adjusted_columns = remove_close_values(column_x_coords, threshold=5)
-        adjusted_rows = remove_close_values(row_y_coords, threshold=5)
+        adjusted_columns = remove_close_values(column_x_coords, threshold=threshold)
+        adjusted_rows = remove_close_values(row_y_coords, threshold=threshold)
 
         # Calculate new cells based on adjusted grid
         new_table_cells = []

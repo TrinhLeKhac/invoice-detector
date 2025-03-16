@@ -127,86 +127,6 @@ def extract_name(text):
     return cleaned_text
 
 
-def normalize_name(
-    name: str, first_names: set, middle_names: set, last_names: set
-) -> str:
-    """
-    Normalize a Vietnamese name by correcting misspellings, capitalizing words,
-    and rearranging components in the correct order: Last Name - Middle Name(s) - First Name.
-
-    Args:
-        name (str): The input name to be normalized.
-        first_names (set): A set of valid last names (Họ).
-        middle_names (set): A set of valid middle names (Chữ lót).
-        last_names (set): A set of valid first names (Tên).
-
-    Returns:
-        str: The normalized full name or an empty string if no valid name is found.
-    """
-
-    def find_best_match(word, valid_set):
-        """Find the best match for a word in the given set by comparing its non-accented version."""
-        candidates = [
-            vn_name
-            for vn_name in valid_set
-            if unidecode(vn_name).lower() == unidecode(word).lower()
-        ]
-        return candidates[0] if candidates else None
-
-    words = name.split()
-    words = [
-        word.capitalize() for word in words
-    ]  # Capitalize the first letter of each word
-
-    # Remove invalid words
-    valid_words = []
-    for word in words:
-        if word in first_names or word in middle_names or word in last_names:
-            valid_words.append(word)
-        else:
-            match = find_best_match(word, first_names | middle_names | last_names)
-            if match:
-                valid_words.append(match)
-
-    if not valid_words:
-        return ""
-
-    first, middle, last = "", [], ""
-
-    # Họ
-    for word in valid_words:
-        if word in first_names:
-            first = word
-            valid_words.remove(word)
-            break
-    else:  # If no exact match is found, try finding a non-accented match
-        for word in valid_words:
-            match = find_best_match(word, first_names)
-            if match:
-                first = match
-                valid_words.remove(word)
-                break
-
-    # Tên
-    for word in reversed(valid_words):
-        if word in first_names.union(last_names):
-            last = word
-            valid_words.remove(word)
-            break
-    else:  # If no exact match is found, try finding a non-accented match
-        for word in reversed(valid_words):
-            match = find_best_match(word, first_names.union(last_names))
-            if match:
-                last = match
-                valid_words.remove(word)
-                break
-
-    # The remaining words are middle names (Chữ lót)
-    middle = valid_words
-
-    return " ".join(itertools.chain([first], middle, [last])).strip()
-
-
 def normalize_name_by_weight(
     name: str, first_names: dict, middle_names: dict, last_names: dict, debug=False
 ) -> str:
@@ -359,21 +279,25 @@ def extract_address(text):
 
 def normalize_number(currency_str):
     """
-    Normalize a currency string by:
-    - Replacing characters 'O', 'Ô', 'Ơ' with '0'
-    - Removing thousand separators (`,` or `.`)
-    - Keeping decimal points if present
-    - Converting the cleaned string to a float or int
+    Normalize a currency string with potential OCR errors.
+
+    Functionality:
+    - Replace commonly misrecognized characters ('O', 'Ô', 'Ơ', 'C') with '0'.
+    - Remove all non-numeric characters.
+    - Convert the cleaned string into an integer.
+
+    Parameters:
+        currency_str (str): The currency string that may contain OCR errors.
 
     Returns:
-        int if no decimal part, otherwise float.
-        Returns -1 if the input is not a valid number.
+        int: The extracted number if valid.
+        0: If the input is invalid or cannot be converted.
     """
     if not currency_str:
         return -1  # Handle empty string case
 
     # Replace 'O', 'Ô', 'Ơ' (common OCR errors) with '0'
-    currency_str = re.sub(r"[OÔƠ]", "0", currency_str, flags=re.IGNORECASE)
+    currency_str = re.sub(r"[oôơc]", "0", currency_str, flags=re.IGNORECASE)
 
     # Remove all non-numeric characters except digits
     cleaned_number = re.sub(r"[^\d]", "", currency_str)
@@ -383,7 +307,7 @@ def normalize_number(currency_str):
         number = int(cleaned_number)
         return number
     except ValueError:
-        return 0  # Return 0 for invalid inputs
+        return -1  # Return -1 for invalid inputs
 
 
 def validate_and_fill_amounts(total_amount, discount, monetary):
@@ -398,18 +322,17 @@ def validate_and_fill_amounts(total_amount, discount, monetary):
     - If any of the three values are missing, compute it using the formula.
     """
 
-    # Ensure discount is within valid range
-    if discount > total_amount:
-        discount = total_amount - monetary
-    if monetary > total_amount:
-        monetary = total_amount - discount
+    # Ensure discount, monetary is within valid range
 
-    if total_amount == 0:
-        total_amount = discount + monetary
-    elif discount == 0:
-        discount = total_amount - monetary
-    elif monetary == 0:
+    if monetary == -1:
         monetary = total_amount - discount
+    elif discount == -1:
+        discount = total_amount - monetary
+    elif total_amount == -1:
+        total_amount = discount + monetary
+
+    if (discount > total_amount) or (monetary > total_amount):
+        total_amount = discount + monetary
 
     return total_amount, discount, monetary
 

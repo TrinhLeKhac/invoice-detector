@@ -36,6 +36,37 @@ def invert(image):
     return inverted_image
 
 
+def detect_and_crop_invoice(image, threshold=30):
+
+    # Convert to HSV
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # Define range for white color (adjustable)
+    lower_white = np.array([0, 0, 120], dtype=np.uint8)
+    upper_white = np.array([180, 60, 240], dtype=np.uint8)
+
+    # Create mask for white regions
+    mask = cv2.inRange(hsv, lower_white, upper_white)
+
+    # Find contours
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if not contours:
+        print("No invoice detected!")
+        return None
+
+    # Find largest contour (assumed to be the invoice)
+    largest_contour = max(contours, key=cv2.contourArea)
+    
+    # If not a quadrilateral, fallback to bounding box cropping
+    x, y, w, h = cv2.boundingRect(largest_contour)
+
+    # Add a vertical threshold to avoid the issue of tape covering the text
+    cropped_image = image[y-threshold:y+h+threshold, x:x+w]
+
+    return cropped_image
+
+
 def enhance_contrast(image, clip_limit=2.0, tile_grid_size=(8, 8)):
     """
     Enhances the contrast of an image using CLAHE (Contrast Limited Adaptive Histogram Equalization).
@@ -242,63 +273,3 @@ def deskew_image(image):
     corrected_image = rotate_image(image, angle)
 
     return corrected_image
-
-
-def binarize(image):
-    """
-    Enhances brightness using Adaptive Gamma Correction and applies adaptive binarization.
-
-    Args:
-        image (numpy.ndarray): Input image.
-
-    Returns:
-        numpy.ndarray: Binary image after enhancement.
-    """
-
-    # Convert image to grayscale if it's not already
-    gray = grayscale(image)
-
-    # ---- Step 1: Adaptive Gamma Correction ---- Ạdjust brightness based on Gamma
-    mean_intensity = np.mean(gray)
-    gamma = 1.5 if mean_intensity < 100 else 1.0
-    gamma_corrected = np.power(gray / 255.0, gamma) * 255.0
-    gamma_corrected = np.clip(gamma_corrected, 0, 255).astype(np.uint8)
-
-    # ---- Step 2: Adaptive Thresholding ----  Apply local threshold
-    binary_adaptive = cv2.adaptiveThreshold(
-        gamma_corrected,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY,
-        41,
-        5,  # Fine-tune blockSize & C
-    )
-
-    # ---- Step 3: Sauvola Binarization (Advanced) ---- Giúp giữ chi tiết tốt hơn trong vùng có độ tương phản thấp
-    window_size = 15  # Window size for local thresholding
-    thresh_sauvola = threshold_sauvola(gamma_corrected, window_size=window_size)
-    binary_sauvola = (gamma_corrected > thresh_sauvola).astype(np.uint8) * 255
-
-    # Combine the best binarization results (choose based on testing)
-    final_binary = cv2.bitwise_and(binary_adaptive, binary_sauvola)
-
-    return final_binary
-
-
-def enhance_text_edges(image):
-
-    w = image.shape[1]
-    h = image.shape[0]
-    w1 = int(w * 0.05)
-    w2 = int(w * 0.95)
-    h1 = int(h * 0.05)
-    h2 = int(h * 0.95)
-    ROI = image[h1:h2, w1:w2]  # 95% of center of the image
-    threshold = np.mean(ROI) * 0.98  # 98% of average brightness
-
-    gray = grayscale(image)
-    blurred = cv2.GaussianBlur(gray, (1, 1), 0)
-    edged = 255 - cv2.Canny(blurred, 100, 150, apertureSize=7)
-
-    thresh, binary = cv2.threshold(blurred, threshold, 255, cv2.THRESH_BINARY)
-    return binary
