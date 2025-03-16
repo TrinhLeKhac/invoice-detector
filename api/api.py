@@ -1,12 +1,9 @@
 from flask import Flask, request, jsonify
 
-from utils.image import (
-    convert_from_base64,
-    convert_to_base64,
-    process_image,
-    extract_general_information,
-)
-from utils.text import process_general_information, process_table_information
+from utils.image.base64 import convert_from_base64, convert_to_base64
+from utils.image.image_processing import processing_image
+from utils.image.ocr_parser import parse_general_information
+from utils.text.handler import handle_general_information
 
 app = Flask(__name__)
 
@@ -21,14 +18,14 @@ def predict():
     image = convert_from_base64(image_encoded_str)
     print(image.shape)
 
-    cropped, binary, table_roi, table_information = process_image(image)
+    cropped, binary, table_roi, table_information = processing_image(image)
 
     p1_image_encoded_str = convert_to_base64(cropped)
     p2_image_encoded_str = convert_to_base64(binary)
     p3_image_encoded_str = convert_to_base64(table_roi)
 
-    general_information = extract_general_information(cropped)
-    profile_info, order_summary = process_general_information(general_information)
+    general_information = parse_general_information(cropped)
+    profile_info, order_summary = handle_general_information(general_information)
 
     return {
         "original": image_encoded_str,

@@ -1,71 +1,26 @@
-import base64
-import re
-
 import cv2
 import numpy as np
-from numpy import mean
-from pytesseract import pytesseract
 from skimage.filters import threshold_sauvola
 
-from utils.table import detect_cells, detect_table, extract_table_information
-from utils.text import process_table_information
 
+def grayscale(image):
+    """Converts a color image to grayscale if it's not already.
 
-def convert_from_base64(full_base64_string):
-    try:
-        match = re.match(
-            r"data:image/(?P<format>png|jpeg|jpg);base64,(?P<data>.+)",
-            full_base64_string,
-        )
+    Args:
+        image (np.ndarray): Input image (grayscale or BGR color).
 
-        if not match:
-            raise ValueError("Invalid base64 string or wrong format image!")
+    Returns:
+        np.ndarray: Grayscale image.
+    """
 
-        # Get format (png, jpeg, jpg)
-        image_format = match.group("format")
+    # Check if the image is already grayscale (2D array)
+    if len(image.shape) == 2:
+        gray = image
+    else:
+        # Convert BGR to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Get data
-        base64_string = match.group("data")
-
-        # Decode base64 to bytes
-        image_bytes = base64.b64decode(base64_string)
-
-        # Convert bytes to NumPy array
-        image_nparr = np.frombuffer(image_bytes, np.uint8)
-
-        # Decode image using OpenCV
-        image = cv2.imdecode(image_nparr, cv2.IMREAD_COLOR)
-
-        if image is None:
-            raise ValueError("Decoded image is None.")
-
-        return image
-    except Exception as e:
-        print(f"Error decoding base64 to image: {e}")
-        return None
-
-
-def convert_to_base64(image, format=".jpg"):
-    try:
-        # Encode image as bytes
-        success, encoded_image = cv2.imencode(format, image)
-        if not success:
-            raise ValueError("Image encoding failed.")
-
-        # Convert to base64 string
-        base64_str = base64.b64encode(encoded_image).decode("utf-8")
-
-        # Determine MIME type based on format
-        format = format.lower().replace(".", "")  # Remove leading dot (".jpg" → "jpg")
-        if format == "jpg":
-            format = "jpeg"  # Convert "jpg" to "jpeg" for correct MIME type
-
-        # Add prefix for Data URI
-        return f"data:image/{format};base64,{base64_str}"
-
-    except Exception as e:
-        print(f"Error encoding image to base64: {e}")
-        return None
+    return gray
 
 
 def invert(image):
@@ -107,24 +62,51 @@ def enhance_contrast(image, clip_limit=2.0, tile_grid_size=(8, 8)):
     return enhanced_image
 
 
-def grayscale(image):
-    """Converts a color image to grayscale if it's not already.
+def remove_shadow(image):
 
-    Args:
-        image (np.ndarray): Input image (grayscale or BGR color).
+    rgb_planes = cv2.split(image)
 
-    Returns:
-        np.ndarray: Grayscale image.
-    """
+    result_planes = []
+    result_threshold_planes = []
+    for plane in rgb_planes:
+        # Dilate the image, in order to get rid of the text
+        dilated_img = cv2.dilate(plane, np.ones((7, 7), np.uint8))
 
-    # Check if the image is already grayscale (2D array)
-    if len(image.shape) == 2:
-        gray = image
-    else:
-        # Convert BGR to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Median blur the result with a decent sized kernel to further suppress any text.
+        bg_img = cv2.medianBlur(dilated_img, 21)
 
-    return gray
+        # Since we want black on white, we invert the result
+        diff_img = 255 - cv2.absdiff(plane, bg_img)
+
+        # Normalize the image, so that we use the full dynamic range.
+        norm_img = diff_img.copy()  # Needed for 3.x compatibility
+        cv2.normalize(
+            diff_img,
+            norm_img,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8UC1,
+        )
+
+        # At this point we still have the paper somewhat gray. We can truncate that away, and re-normalize the image.
+        _, thr_img = cv2.threshold(norm_img, 230, 0, cv2.THRESH_TRUNC)
+        cv2.normalize(
+            thr_img,
+            thr_img,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8UC1,
+        )
+
+        result_planes.append(diff_img)
+        result_threshold_planes.append(thr_img)
+
+    result = cv2.merge(result_planes)
+    result_thresh = cv2.merge(result_threshold_planes)
+
+    return result_thresh
 
 
 def denoise(image, kernel_size=(1, 1), iterations=1, ksize=3):
@@ -161,7 +143,7 @@ def denoise(image, kernel_size=(1, 1), iterations=1, ksize=3):
     return cleaned
 
 
-def thin_font(image, kernel_size=(2, 2), iterations=1):
+def lighten_text(image, kernel_size=(2, 2), iterations=1):
     image = cv2.bitwise_not(image)
     kernel = np.ones(kernel_size, np.uint8)
     image = cv2.erode(image, kernel=kernel, iterations=iterations)
@@ -169,7 +151,7 @@ def thin_font(image, kernel_size=(2, 2), iterations=1):
     return image
 
 
-def thick_font(image, kernel_size=(2, 2), iterations=1):
+def thicken_text(image, kernel_size=(2, 2), iterations=1):
     image = cv2.bitwise_not(image)
     kernel = np.ones(kernel_size, np.uint8)
     image = cv2.dilate(image, kernel=kernel, iterations=iterations)
@@ -303,69 +285,6 @@ def binarize(image):
     return final_binary
 
 
-def extract_general_information(image, config="--psm 6", lang="vie"):
-    """Extracts text from an image using Tesseract OCR."""
-    try:
-        # Open image
-        # image = Image.open(processed_image_path)
-
-        # Perform OCR
-        ocr_output = pytesseract.image_to_string(image, config=config, lang=lang)
-
-        return ocr_output.strip()
-    except Exception as e:
-        print(f"Error extracting text from image: {e}")
-        # Return an empty string if an error occurs
-        return ""
-
-
-def remove_shadow(image):
-
-    rgb_planes = cv2.split(image)
-
-    result_planes = []
-    result_threshold_planes = []
-    for plane in rgb_planes:
-        # Dilate the image, in order to get rid of the text
-        dilated_img = cv2.dilate(plane, np.ones((7, 7), np.uint8))
-
-        # Median blur the result with a decent sized kernel to further suppress any text.
-        bg_img = cv2.medianBlur(dilated_img, 21)
-
-        # Since we want black on white, we invert the result
-        diff_img = 255 - cv2.absdiff(plane, bg_img)
-
-        # Normalize the image, so that we use the full dynamic range.
-        norm_img = diff_img.copy()  # Needed for 3.x compatibility
-        cv2.normalize(
-            diff_img,
-            norm_img,
-            alpha=0,
-            beta=255,
-            norm_type=cv2.NORM_MINMAX,
-            dtype=cv2.CV_8UC1,
-        )
-
-        # At this point we still have the paper somewhat gray. We can truncate that away, and re-normalize the image.
-        _, thr_img = cv2.threshold(norm_img, 230, 0, cv2.THRESH_TRUNC)
-        cv2.normalize(
-            thr_img,
-            thr_img,
-            alpha=0,
-            beta=255,
-            norm_type=cv2.NORM_MINMAX,
-            dtype=cv2.CV_8UC1,
-        )
-
-        result_planes.append(diff_img)
-        result_threshold_planes.append(thr_img)
-
-    result = cv2.merge(result_planes)
-    result_thresh = cv2.merge(result_threshold_planes)
-
-    return result_thresh
-
-
 def enhance_text_edges(image):
 
     w = image.shape[1]
@@ -383,80 +302,3 @@ def enhance_text_edges(image):
 
     thresh, binary = cv2.threshold(blurred, threshold, 255, cv2.THRESH_BINARY)
     return binary
-
-
-def process_image(image, border=5):
-    """Processes an image: converts to grayscale, rotates, binarizes, finds contours, and crops."""
-    # try:
-
-    # Remove shadow
-    # adjusted_image = remove_shadow(image)
-
-    # Enhance contrast
-    # enhanced = enhance_contrast(image)
-
-    # Convert to grayscale
-    gray = grayscale(image)
-
-    # Convert to binary image to FIND CONTOUR
-    # Binary (1): Vùng xung quanh (thùng hàng, ..) bị lem
-    # => contours chính xác => crop OCR focus được vào information
-    # Tuy nhiên có lúc bị lem nhiều => cắt quá đà, bị mất thông tin
-    _, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
-
-    # Find contours in binary image
-    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    if contours:
-        # Get max contour
-        max_contour = max(contours, key=cv2.contourArea)
-
-        # Get bounding box
-        x, y, w, h = cv2.boundingRect(max_contour)
-
-        # # Draw bounding box
-        # cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 5)
-
-        # Crop image
-        cropped = gray[y + border : y + h - border, x + border : x + w - border]
-    else:
-        # If no contours, keep the rotated image
-        cropped = gray
-
-    # Remove bóng
-    non_shadow = remove_shadow(cropped)
-
-    # Xoay hình
-    deskewed = deskew_image(non_shadow)
-
-    # Remove noise
-    denoised = denoise(deskewed, kernel_size=(1, 1), iterations=1, ksize=1)
-
-    # enhance text-edge
-    enhanced = enhance_text_edges(denoised)  # binary image
-
-    # Binary image
-    # binary = binarize(enhanced)
-
-    # Extract table
-    table_roi = detect_table(denoised)  # denoised | enhanced
-    # table_roi = thick_font(table_roi)
-    # table_roi = invert(table_roi)
-
-    table_cells = detect_cells(table_roi)
-    print(table_cells)
-
-    raw_table_information = extract_table_information(
-        table_roi, table_cells, border=border
-    )
-    print(raw_table_information)
-
-    table_information = process_table_information(raw_table_information)
-    print(table_information)
-
-    return denoised, enhanced, table_roi, table_information
-
-    # except Exception as e:
-    #     print(f"Error processing image: {e}")
-    #     # Return None values if an error occurs
-    #     return None, None, None, None
