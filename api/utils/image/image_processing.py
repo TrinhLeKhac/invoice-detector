@@ -35,7 +35,7 @@ def processing_image(image, border=5):
     deskewed = deskew_image(gray)
 
     # Detect table
-    table_roi = detect_table(deskewed)  # deskewed | denoised
+    table_roi = detect_table(deskewed)
 
     # Detect cells
     table_cells = detect_cells(table_roi)

@@ -1,8 +1,8 @@
 import itertools
 import re
+import unicodedata
 
 from unidecode import unidecode
-import unicodedata
 
 from utils.text.regex import TIME_DATE_PATTERN
 
@@ -114,9 +114,14 @@ def remove_consecutive_duplicate_tone_marks(word):
     Returns:
         str: The corrected word.
     """
+
     def remove_tone(char):
         """Convert a Vietnamese character to its base form (without diacritics)."""
-        return unicodedata.normalize('NFD', char).encode('ascii', 'ignore').decode('utf-8') if char.isalpha() else char
+        return (
+            unicodedata.normalize("NFD", char).encode("ascii", "ignore").decode("utf-8")
+            if char.isalpha()
+            else char
+        )
 
     result = []
     prev_base = ""
@@ -258,7 +263,7 @@ def normalize_name_by_weight(
     # Select the first name with the highest priority
     if found_last_names:
         last = max(found_last_names, key=lambda x: {**first_names, **last_names}.get(x))
-        
+
         # 🔹 **Check if a better version exists with correct accents**
         unaccented_last = unidecode(last).lower()
         better_last = max(
@@ -268,12 +273,19 @@ def normalize_name_by_weight(
         )
         if better_last != last and last_names[better_last] > last_names[last]:
             last = better_last  # Replace with the correct accented version
-        
+
         if debug:
             print("Tên: ", last)
-        
+
         # 🔥 ** Remove original word
-        original_last = next((word for word in valid_words if unidecode(word).lower() == unaccented_last), last)
+        original_last = next(
+            (
+                word
+                for word in valid_words
+                if unidecode(word).lower() == unaccented_last
+            ),
+            last,
+        )
         if original_last in valid_words:
             valid_words.remove(original_last)
     else:
