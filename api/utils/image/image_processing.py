@@ -4,16 +4,11 @@ import cv2
 import numpy as np
 from pytesseract import pytesseract
 
-from utils.image.helper import (
-    grayscale,
-    remove_shadow,
-    deskew_image,
-    denoise,
-    enhance_text_edges,
-)
+from utils.image.helper import (denoise, deskew_image, enhance_text_edges,
+                                grayscale, remove_shadow)
 from utils.image.ocr_parser import parse_table_information
-from utils.text.handler import handle_table_information
 from utils.table.detector import detect_cells, detect_table
+from utils.text.handler import handle_table_information
 
 
 def processing_image(image, border=5):

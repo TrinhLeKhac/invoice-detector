@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 
 from utils.image.base64 import convert_from_base64, convert_to_base64
 from utils.image.image_processing import processing_image

@@ -1,5 +1,5 @@
-from pytesseract import pytesseract
 import numpy as np
+from pytesseract import pytesseract
 
 
 def parse_general_information(image, config="--psm 6", lang="vie"):

@@ -1,34 +1,20 @@
 import re
+
 from unidecode import unidecode
 
-from utils.address.parser import parse_address
-
-from utils.text.regex import *
-from utils.text.helper import (
-    clean_text_before_unidecode,
-    extract_information,
-    extract_name,
-    normalize_number,
-    normalize_datetime,
-    extract_and_normalize_phone_numbers,
-    normalize_name_by_weight,
-    extract_address,
-    validate_and_fill_amounts,
-)
-
-from utils.address.regex import *
 from data.district import DISTRICT_DICTIONARY
+from data.name import (FIRST_NAMES_DICT, FIRST_NAMES_SET, LAST_NAMES_DICT,
+                       LAST_NAMES_SET, MIDDLE_NAMES_DICT, MIDDLE_NAMES_SET)
 from data.province import PROVINCE_DICTIONARY
 from data.ward import WARD_DICTIONARY
-
-from data.name import (
-    FIRST_NAMES_DICT,
-    FIRST_NAMES_SET,
-    LAST_NAMES_DICT,
-    LAST_NAMES_SET,
-    MIDDLE_NAMES_DICT,
-    MIDDLE_NAMES_SET,
-)
+from utils.address.parser import parse_address
+from utils.address.regex import *
+from utils.text.helper import (clean_text_before_unidecode, extract_address,
+                               extract_and_normalize_phone_numbers,
+                               extract_information, extract_name,
+                               normalize_datetime, normalize_name_by_weight,
+                               normalize_number, validate_and_fill_amounts)
+from utils.text.regex import *
 
 
 def handle_general_information(general_information):

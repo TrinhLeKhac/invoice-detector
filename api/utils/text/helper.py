@@ -1,6 +1,8 @@
-import re
 import itertools
+import re
+
 from unidecode import unidecode
+
 from utils.text.regex import *
 
 

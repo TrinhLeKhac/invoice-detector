@@ -1,5 +1,6 @@
 import re
 import unicodedata
+
 from utils.address.regex import *
 
 

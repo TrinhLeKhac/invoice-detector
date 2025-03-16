@@ -3,8 +3,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.address import *
 import unittest
+
+from utils.address import *
 
 
 class TestInitCapWords(unittest.TestCase):
