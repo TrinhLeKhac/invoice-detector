@@ -1,15 +1,13 @@
 import re
+
 from unidecode import unidecode
-from utils.address.helper import (
-    remove_punctuation,
-    add_space_separator,
-    clean_full_address,
-    replace_last_occurrences,
-    last_index_of_regex,
-    remove_abundant_part,
-    matching_and_find_substring,
-    correct_misspelled_words,
-)
+
+from utils.address.helper import (add_space_separator, clean_full_address,
+                                  correct_misspelled_words,
+                                  last_index_of_regex,
+                                  matching_and_find_substring,
+                                  remove_abundant_part, remove_punctuation,
+                                  replace_last_occurrences)
 from utils.address.regex import ADDRESS_PUNCTUATIONS
 
 

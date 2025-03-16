@@ -4,8 +4,9 @@ import cv2
 import numpy as np
 from pytesseract import pytesseract
 
-from utils.image.helper import (detect_and_crop_invoice, remove_shadow, enhance_contrast,
-                                grayscale, deskew_image, denoise, thicken_text, lighten_text)
+from utils.image.helper import (denoise, deskew_image, detect_and_crop_invoice,
+                                enhance_contrast, grayscale, lighten_text,
+                                remove_shadow, thicken_text)
 from utils.image.ocr_parser import parse_table_information
 from utils.table.detector import detect_cells, detect_table
 from utils.text.handler import handle_table_information

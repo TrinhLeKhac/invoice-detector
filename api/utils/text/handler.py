@@ -14,22 +14,13 @@ from utils.text.helper import (clean_text_before_unidecode, extract_address,
                                extract_information, extract_name,
                                normalize_datetime, normalize_name_by_weight,
                                normalize_number, validate_and_fill_amounts)
-from utils.text.regex import (
-    CREATED_TIME_PATTERN,
-    SHOP_NAME_PATTERN,
-    HOTLINE_PATTERN,
-    EMPLOYEE_NAME_PATTERN,
-    CUSTOMER_NAME_PATTERN,
-    CUSTOMER_PHONE_PATTERN,
-    ADDRESS_PATTERN,
-    REGION_PATTERN,
-    SHIPPING_TIME_PATTERN,
-    TOTAL_QUANTITY_PATTERN,
-    TOTAL_AMOUNT_PATTERN,
-    DISCOUNT_PATTERN,
-    MONETARY_PATTERN,
-    TABLE_COLUMN_MAPPING,
-)
+from utils.text.regex import (ADDRESS_PATTERN, CREATED_TIME_PATTERN,
+                              CUSTOMER_NAME_PATTERN, CUSTOMER_PHONE_PATTERN,
+                              DISCOUNT_PATTERN, EMPLOYEE_NAME_PATTERN,
+                              HOTLINE_PATTERN, MONETARY_PATTERN,
+                              REGION_PATTERN, SHIPPING_TIME_PATTERN,
+                              SHOP_NAME_PATTERN, TABLE_COLUMN_MAPPING,
+                              TOTAL_AMOUNT_PATTERN, TOTAL_QUANTITY_PATTERN)
 
 
 def handle_general_information(general_information):
@@ -62,26 +53,36 @@ def handle_general_information(general_information):
     # print(no_accent_target)
 
     # Extract information
-    created_time = extract_information(target, no_accent_target, CREATED_TIME_PATTERN, direct=True)
+    created_time = extract_information(
+        target, no_accent_target, CREATED_TIME_PATTERN, direct=True
+    )
     created_time = normalize_datetime(created_time)
     profile_info["created_time"] = created_time
 
-    shop_name = extract_information(target, no_accent_target, SHOP_NAME_PATTERN, direct=True)
+    shop_name = extract_information(
+        target, no_accent_target, SHOP_NAME_PATTERN, direct=True
+    )
     shop_name = extract_name(shop_name)
     profile_info["shop_name"] = shop_name
 
-    hotline = extract_information(target, no_accent_target, HOTLINE_PATTERN, direct=True)
+    hotline = extract_information(
+        target, no_accent_target, HOTLINE_PATTERN, direct=True
+    )
     lst_hotline = extract_and_normalize_phone_numbers(hotline)
     profile_info["hotline"] = lst_hotline
 
-    employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN, direct=True)
+    employee_name = extract_information(
+        target, no_accent_target, EMPLOYEE_NAME_PATTERN, direct=True
+    )
     employee_name = extract_name(employee_name)
     employee_name = normalize_name_by_weight(
         employee_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
     )
     profile_info["employee_name"] = employee_name
 
-    customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN, direct=True)
+    customer_name = extract_information(
+        target, no_accent_target, CUSTOMER_NAME_PATTERN, direct=True
+    )
     customer_name = extract_name(customer_name)
     customer_name = normalize_name_by_weight(
         customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
@@ -95,7 +96,9 @@ def handle_general_information(general_information):
     if len(lst_customer_phone) > 0:
         profile_info["customer_phone"] = lst_customer_phone[0]
 
-    address = extract_information(target, no_accent_target, ADDRESS_PATTERN, direct=True)
+    address = extract_information(
+        target, no_accent_target, ADDRESS_PATTERN, direct=True
+    )
     address = extract_address(address)
     address = parse_address(
         address,
@@ -110,7 +113,9 @@ def handle_general_information(general_information):
     region = extract_name(region)
     profile_info["region"] = region
 
-    shipping_time = extract_information(target, no_accent_target, SHIPPING_TIME_PATTERN, direct=True)
+    shipping_time = extract_information(
+        target, no_accent_target, SHIPPING_TIME_PATTERN, direct=True
+    )
     shipping_time = normalize_datetime(shipping_time)
     profile_info["shipping_time"] = shipping_time
 

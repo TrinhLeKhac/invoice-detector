@@ -57,12 +57,12 @@ def detect_and_crop_invoice(image, threshold=30):
 
     # Find largest contour (assumed to be the invoice)
     largest_contour = max(contours, key=cv2.contourArea)
-    
+
     # If not a quadrilateral, fallback to bounding box cropping
     x, y, w, h = cv2.boundingRect(largest_contour)
 
     # Add a vertical threshold to avoid the issue of tape covering the text
-    cropped_image = image[y-threshold:y+h+threshold, x:x+w]
+    cropped_image = image[y - threshold : y + h + threshold, x : x + w]
 
     return cropped_image
 
