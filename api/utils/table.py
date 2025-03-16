@@ -4,6 +4,7 @@ import pandas as pd
 from collections import OrderedDict
 from pytesseract import pytesseract
 
+
 def detect_table(image):
     # Convert image to grayscale if it's not already
     if len(image.shape) == 2:
@@ -46,7 +47,7 @@ def detect_table(image):
     # If no table is detected, return None
     if table_roi is None:
         print("No table detected")
-    
+
     #  # Apply CLAHE to enhance contrast
     # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     # table_roi = clahe.apply(table_roi)
@@ -188,13 +189,13 @@ def detect_cells(image, thin_thresh=5):
 
     # Use Hough Transform to find lines
     h_lines = cv2.HoughLinesP(
-        horizontal_lines, 
-        1,                  # Khoảng cách pixel giữa các đường trong không gian Hough
-        np.pi / 180,        # Độ phân giải góc trong không gian Hough (1 độ)
-        10,                 # Ngưỡng (threshold) số điểm ảnh thẳng hàng tối thiểu để xác định 1 đoạn thẳng
-        minLineLength=30,   # Độ dài tối thiểu của một đoạn thẳng hợp lệ
-        maxLineGap=15       # Khoảng cách tối đa giữa hai đoạn để nối thành một đường
-    ) # 50, 30, 10
+        horizontal_lines,
+        1,  # Khoảng cách pixel giữa các đường trong không gian Hough
+        np.pi / 180,  # Độ phân giải góc trong không gian Hough (1 độ)
+        10,  # Ngưỡng (threshold) số điểm ảnh thẳng hàng tối thiểu để xác định 1 đoạn thẳng
+        minLineLength=30,  # Độ dài tối thiểu của một đoạn thẳng hợp lệ
+        maxLineGap=15,  # Khoảng cách tối đa giữa hai đoạn để nối thành một đường
+    )  # 50, 30, 10
     v_lines = cv2.HoughLinesP(
         vertical_lines, 1, np.pi / 180, 10, minLineLength=30, maxLineGap=15
     )
@@ -245,12 +246,20 @@ def detect_cells(image, thin_thresh=5):
         for i in range(1, len(coords)):
             if coords[i] - filtered[-1] >= threshold:
                 filtered.append(coords[i])
-        return filtered 
-    
+        return filtered
+
     if table_cells:
         # Extract unique x and y coordinates
-        column_x_coords = sorted(set(cell[0] for cell in table_cells).union(set(cell[2] for cell in table_cells)))
-        row_y_coords = sorted(set(cell[1] for cell in table_cells).union(set(cell[3] for cell in table_cells)))
+        column_x_coords = sorted(
+            set(cell[0] for cell in table_cells).union(
+                set(cell[2] for cell in table_cells)
+            )
+        )
+        row_y_coords = sorted(
+            set(cell[1] for cell in table_cells).union(
+                set(cell[3] for cell in table_cells)
+            )
+        )
 
         # Remove close values
         adjusted_columns = remove_close_values(column_x_coords, threshold=5)
@@ -317,13 +326,23 @@ def extract_table_information(table_image, table_cells, border=3, threshold=5):
     # Extract column headers
     headers = []
     for i in range(num_cols):
-        header_cell = next((cell for cell in table_cells if abs(cell[0] - cols[i]) <= threshold and abs(cell[1] - rows[0]) <= threshold), None)
+        header_cell = next(
+            (
+                cell
+                for cell in table_cells
+                if abs(cell[0] - cols[i]) <= threshold
+                and abs(cell[1] - rows[0]) <= threshold
+            ),
+            None,
+        )
         if header_cell:
             header_image = table_image[
                 header_cell[1] + border : header_cell[3] - border,
-                header_cell[0] + border : header_cell[2] - border
+                header_cell[0] + border : header_cell[2] - border,
             ]
-            header_text = pytesseract.image_to_string(header_image, config="--psm 6", lang="vie").strip()
+            header_text = pytesseract.image_to_string(
+                header_image, config="--psm 6", lang="vie"
+            ).strip()
             headers.append(header_text)
 
     # Extract table rows
@@ -331,13 +350,23 @@ def extract_table_information(table_image, table_cells, border=3, threshold=5):
         row_data = {}
         for col_idx in range(num_cols):
             try:
-                cell = next((cell for cell in table_cells if abs(cell[0] - cols[col_idx]) <= threshold and abs(cell[1] - rows[row_idx]) <= threshold), None)
+                cell = next(
+                    (
+                        cell
+                        for cell in table_cells
+                        if abs(cell[0] - cols[col_idx]) <= threshold
+                        and abs(cell[1] - rows[row_idx]) <= threshold
+                    ),
+                    None,
+                )
                 if cell:
                     cell_image = table_image[
                         cell[1] + border : cell[3] - border,
-                        cell[0] + border : cell[2] - border
+                        cell[0] + border : cell[2] - border,
                     ]
-                    cell_text = pytesseract.image_to_string(cell_image, config="--psm 6", lang="vie").strip()
+                    cell_text = pytesseract.image_to_string(
+                        cell_image, config="--psm 6", lang="vie"
+                    ).strip()
                     row_data[headers[col_idx]] = cell_text
                 else:
                     row_data[headers[col_idx]] = ""  # Empty cell if missing

@@ -10,6 +10,7 @@ from skimage.filters import threshold_sauvola
 from utils.table import detect_cells, detect_table, extract_table_information
 from utils.text import process_table_information
 
+
 def convert_from_base64(full_base64_string):
     try:
         match = re.match(
@@ -417,9 +418,7 @@ def process_image(image, border=5):
         # cv2.rectangle(rotated, (x, y), (x + w, y + h), (0, 0, 255), 5)
 
         # Crop image
-        cropped = gray[
-            y + border : y + h - border, x + border : x + w - border
-        ]
+        cropped = gray[y + border : y + h - border, x + border : x + w - border]
     else:
         # If no contours, keep the rotated image
         cropped = gray
@@ -447,7 +446,9 @@ def process_image(image, border=5):
     table_cells = detect_cells(table_roi)
     print(table_cells)
 
-    raw_table_information = extract_table_information(table_roi, table_cells, border=border)
+    raw_table_information = extract_table_information(
+        table_roi, table_cells, border=border
+    )
     print(raw_table_information)
 
     table_information = process_table_information(raw_table_information)
