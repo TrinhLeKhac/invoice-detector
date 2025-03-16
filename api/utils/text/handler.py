@@ -8,13 +8,28 @@ from data.name import (FIRST_NAMES_DICT, FIRST_NAMES_SET, LAST_NAMES_DICT,
 from data.province import PROVINCE_DICTIONARY
 from data.ward import WARD_DICTIONARY
 from utils.address.parser import parse_address
-from utils.address.regex import *
+from utils.address.regex import SPECIAL_ENDING
 from utils.text.helper import (clean_text_before_unidecode, extract_address,
                                extract_and_normalize_phone_numbers,
                                extract_information, extract_name,
                                normalize_datetime, normalize_name_by_weight,
                                normalize_number, validate_and_fill_amounts)
-from utils.text.regex import *
+from utils.text.regex import (
+    CREATED_TIME_PATTERN,
+    SHOP_NAME_PATTERN,
+    HOTLINE_PATTERN,
+    EMPLOYEE_NAME_PATTERN,
+    CUSTOMER_NAME_PATTERN,
+    CUSTOMER_PHONE_PATTERN,
+    ADDRESS_PATTERN,
+    REGION_PATTERN,
+    SHIPPING_TIME_PATTERN,
+    TOTAL_QUANTITY_PATTERN,
+    TOTAL_AMOUNT_PATTERN,
+    DISCOUNT_PATTERN,
+    MONETARY_PATTERN,
+    TABLE_COLUMN_MAPPING,
+)
 
 
 def handle_general_information(general_information):

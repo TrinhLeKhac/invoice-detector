@@ -1,11 +1,4 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import unittest
-
-from utils.address import *
 
 
 class TestInitCapWords(unittest.TestCase):

@@ -1,6 +1,16 @@
+import re
 from unidecode import unidecode
-
-from utils.address.helper import *
+from utils.address.helper import (
+    remove_punctuation,
+    add_space_separator,
+    clean_full_address,
+    replace_last_occurrences,
+    last_index_of_regex,
+    remove_abundant_part,
+    matching_and_find_substring,
+    correct_misspelled_words,
+)
+from utils.address.regex import ADDRESS_PUNCTUATIONS
 
 
 def parse_address(

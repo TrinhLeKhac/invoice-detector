@@ -25,7 +25,7 @@ CUSTOMER_NAME_PATTERN = rf"(?:kh[aàáãạâấầẩẫậăắằẳẵặ]ch
 # CUSTOMER_PHONE_PATTERN = rf"(?:s\s*d[t|f]){OPTIONAL_COLON}(.*?)(?:dia\s*chi)"
 CUSTOMER_PHONE_PATTERN = rf"(?:s\s*[dđ][t|f]){OPTIONAL_COLON}(.*?)(?:[dđ][iìíĩịîï][aàáãạâấầẩẫậăắằẳẵặ]\s*ch[iìíĩịîï])"
 
-ADDRESS_PATTERN = rf"(?:dia\s*chi){OPTIONAL_COLON}(.*?)(?:khu\s*vuc)"
+# ADDRESS_PATTERN = rf"(?:dia\s*chi){OPTIONAL_COLON}(.*?)(?:khu\s*vuc)"
 ADDRESS_PATTERN = rf"(?:[dđ][iìíĩịîï][aàáãạâấầẩẫậăắằẳẵặ]\s*ch[iìíĩịîï]){OPTIONAL_COLON}(.*?)(?:kh[uùúủũụưừứửữự]\s*v[uùúủũụưừứửữự]c)"
 
 # REGION_PATTERN = rf"(?:khu\s*vuc){OPTIONAL_COLON}(.*?)(?:thoi\s*gian\s*giao\s*hang)"

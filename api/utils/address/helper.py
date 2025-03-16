@@ -1,7 +1,12 @@
 import re
 import unicodedata
 
-from utils.address.regex import *
+from utils.address.regex import (
+    CHECK_SPELL_WORDS_NO_ACCENT,
+    CHECK_SPELL_WORDS,
+    DICT_NORM_CITY_DASH,
+    DICT_NORM_ABBREV,
+)
 
 
 def remove_abundant_part(address: str) -> str:

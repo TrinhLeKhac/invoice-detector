@@ -3,7 +3,7 @@ import re
 
 from unidecode import unidecode
 
-from utils.text.regex import *
+from utils.text.regex import TIME_DATE_PATTERN
 
 
 def clean_text_before_unidecode(text):
