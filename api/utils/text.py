@@ -626,25 +626,78 @@ def process_general_information(general_information):
     return profile_info, order_summary
 
 
-def process_details_information(details_information):
-    order_details = [
-        {
-            "product_name": "Product A",
-            "unit_price": 1000,
-            "quantity": 1,
-            "total_price": 1000,
-        },
-        {
-            "product_name": "Product B",
-            "unit_price": 1000,
-            "quantity": 2,
-            "total_price": 2000,
-        },
-        {
-            "product_name": "Product C",
-            "unit_price": 10000,
-            "quantity": 3,
-            "total_price": 30000,
-        },
-    ]
-    return order_details
+def process_table_information(raw_table_information):
+
+    # Mapping column names to standard names using regex
+    COLUMN_MAPPING = {
+        "(?:.*t[eêềếệểễ][mn].*h[àaáạãảâấầậẩẫăắằẳẵặ][mn][qg].*h[oóòỏõọôốồổỗộơớờởỡợ][àaáạãảâấầậẩẫăắằẳẵặ].*|"
+        ".*h[àaáạãảâấầậẩẫăắằẳẵặ][mn][qg].*h[oóòỏõọôốồổỗộơớờởỡợ][àaáạãảâấầậẩẫăắằẳẵặ].*)": "product_name",
+        
+        "(?:.*s[.,]?l.*|"
+        ".*s[oóòỏõọôốồổỗộơớờởỡợ.,].*l[ưứừửữựuúùủũụ].*[oơờớởỡợ][mn][qg].*?)": "quantity",
+        
+        "(?:.*[dđ][.,]?.*[gq][iíìỉĩị][àaáạãảâấầậẩẫăắằẳẵặ].*|"
+        ".*[dđ][ôốồổỗộoóòỏõọ][mn].*[gq][iíìỉĩị][àaáạãảâấầậẩẫăắằẳẵặ].*)": "unit_price",
+        
+        "(?:.*t[.,]?t[iíìỉĩị][eêềếệểễ][mn].*|"
+        ".*th[aàáạãảâấầậẩẫăắằẳẵặ][mn]h.*t[iíìỉĩị][eêềếệểễ][mn].*)": "total_price"
+    }
+
+    def normalize_column_name(column_name):
+        """ Normalize column names using regex matching """
+        for pattern, standard_name in COLUMN_MAPPING.items():
+            if re.search(pattern, column_name, re.IGNORECASE|re.DOTALL):
+                return standard_name
+        return column_name 
+
+    # Default row if extracted data is missing
+    default_table_information = {
+        "product_name": "",
+        "quantity": 0,
+        "unit_price": 0,
+        "total_price": 0,
+    }
+
+    # If raw_table_information is empty, return default values
+    if not raw_table_information:
+        return [default_table_information]
+
+    table_information = []
+    for raw_table_row in raw_table_information:
+        normalized_row = {}
+
+        # Normalize column names and values
+        for column, value in raw_table_row.items():
+            normalized_column = normalize_column_name(column)
+
+            if normalized_column in ["quantity", "unit_price", "total_price"]:
+                value = normalize_number(value)
+            
+            if normalized_column in ["product_name", "quantity", "unit_price", "total_price"]:
+                normalized_row[normalized_column] = value
+
+        # Fill missing values with defaults
+        for key, default_value in default_table_information.items():
+            if key not in normalized_row:
+                normalized_row[key] = default_value
+
+        # If only total_price is present, assume quantity = 1
+        if normalized_row["total_price"] > 0 and (normalized_row["quantity"] == 0 or normalized_row["unit_price"] == 0):
+            normalized_row["quantity"] = 1
+            normalized_row["unit_price"] = normalized_row["total_price"]
+
+        # Ensure quantity * unit_price = total_price
+        expected_total_price = normalized_row["quantity"] * normalized_row["unit_price"]
+        
+        if normalized_row["total_price"] != expected_total_price:
+            if normalized_row["total_price"] % normalized_row["unit_price"] != 0:
+                # If total_price is not divisible by unit_price, update total_price
+                normalized_row["total_price"] = expected_total_price
+            else:
+                # Otherwise, update quantity to match total_price
+                normalized_row["quantity"] = normalized_row["total_price"] // normalized_row["unit_price"]
+        
+        table_information.append(normalized_row)
+
+    return table_information
+

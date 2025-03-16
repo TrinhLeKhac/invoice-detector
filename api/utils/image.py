@@ -7,8 +7,8 @@ from numpy import mean
 from pytesseract import pytesseract
 from skimage.filters import threshold_sauvola
 
-from utils.table import detect_cells, detect_table
-
+from utils.table import detect_cells, detect_table, extract_table_information
+from utils.text import process_table_information
 
 def convert_from_base64(full_base64_string):
     try:
@@ -78,6 +78,32 @@ def invert(image):
     """
     inverted_image = cv2.bitwise_not(image)
     return inverted_image
+
+
+def enhance_contrast(image, clip_limit=2.0, tile_grid_size=(8, 8)):
+    """
+    Enhances the contrast of an image using CLAHE (Contrast Limited Adaptive Histogram Equalization).
+
+    Args:
+        image: Input image (grayscale or color).
+        clip_limit: Threshold for contrast clipping in CLAHE.
+        tile_grid_size: Size of the grid for CLAHE.
+
+    Returns:
+        The contrast-enhanced image.
+    """
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+
+    if len(image.shape) == 2:  # Grayscale image
+        enhanced_image = clahe.apply(image)
+    else:  # Color image, apply CLAHE to the L channel in LAB color space
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        l = clahe.apply(l)  # Apply CLAHE only on the L channel
+        enhanced_lab = cv2.merge((l, a, b))
+        enhanced_image = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
+
+    return enhanced_image
 
 
 def grayscale(image):
@@ -276,7 +302,7 @@ def binarize(image):
     return final_binary
 
 
-def extract_information_from_image(image, config="--psm 6", lang="vie"):
+def extract_general_information(image, config="--psm 6", lang="vie"):
     """Extracts text from an image using Tesseract OCR."""
     try:
         # Open image
@@ -290,18 +316,6 @@ def extract_information_from_image(image, config="--psm 6", lang="vie"):
         print(f"Error extracting text from image: {e}")
         # Return an empty string if an error occurs
         return ""
-
-
-def extract_information_from_table(table_image, table_cells):
-
-    table_information = []
-    for cell in table_cells:
-        cell_x_min, cell_y_min, cell_x_max, cell_y_max = cell
-        cell_image = table_image[cell_y_min:cell_y_max, cell_x_min:cell_x_max]
-
-        table_information.append(extract_information_from_image(cell_image))
-
-    return table_information
 
 
 def remove_shadow(image):
@@ -370,23 +384,24 @@ def enhance_text_edges(image):
     return binary
 
 
-def process_image(image, thickness=0):
+def process_image(image, border=5):
     """Processes an image: converts to grayscale, rotates, binarizes, finds contours, and crops."""
     # try:
 
     # Remove shadow
     # adjusted_image = remove_shadow(image)
 
+    # Enhance contrast
+    # enhanced = enhance_contrast(image)
+
     # Convert to grayscale
     gray = grayscale(image)
-
-    gray_cp = gray.copy()
 
     # Convert to binary image to FIND CONTOUR
     # Binary (1): Vùng xung quanh (thùng hàng, ..) bị lem
     # => contours chính xác => crop OCR focus được vào information
     # Tuy nhiên có lúc bị lem nhiều => cắt quá đà, bị mất thông tin
-    _, binary = cv2.threshold(gray_cp, 180, 255, cv2.THRESH_BINARY)
+    _, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
 
     # Find contours in binary image
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -403,8 +418,8 @@ def process_image(image, thickness=0):
 
         # Crop image
         cropped = gray[
-            y + thickness : y + h - thickness, x + thickness : x + w - thickness
-        ]  # rotated
+            y + border : y + h - border, x + border : x + w - border
+        ]
     else:
         # If no contours, keep the rotated image
         cropped = gray
@@ -425,17 +440,20 @@ def process_image(image, thickness=0):
     # binary = binarize(enhanced)
 
     # Extract table
-    table_roi = detect_table(enhanced)  # denoised | enhanced
+    table_roi = detect_table(denoised)  # denoised | enhanced
     # table_roi = thick_font(table_roi)
     # table_roi = invert(table_roi)
 
     table_cells = detect_cells(table_roi)
     print(table_cells)
 
-    details_information = extract_information_from_table(table_roi, table_cells)
-    print(details_information)
+    raw_table_information = extract_table_information(table_roi, table_cells, border=border)
+    print(raw_table_information)
 
-    return denoised, enhanced, table_roi
+    table_information = process_table_information(raw_table_information)
+    print(table_information)
+
+    return denoised, enhanced, table_roi, table_information
 
     # except Exception as e:
     #     print(f"Error processing image: {e}")
