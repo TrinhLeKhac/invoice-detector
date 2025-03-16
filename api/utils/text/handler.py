@@ -47,26 +47,26 @@ def handle_general_information(general_information):
     # print(no_accent_target)
 
     # Extract information
-    created_time = extract_information(target, no_accent_target, CREATED_TIME_PATTERN)
+    created_time = extract_information(target, no_accent_target, CREATED_TIME_PATTERN, direct=True)
     created_time = normalize_datetime(created_time)
     profile_info["created_time"] = created_time
 
-    shop_name = extract_information(target, no_accent_target, SHOP_NAME_PATTERN)
+    shop_name = extract_information(target, no_accent_target, SHOP_NAME_PATTERN, direct=True)
     shop_name = extract_name(shop_name)
     profile_info["shop_name"] = shop_name
 
-    hotline = extract_information(target, no_accent_target, HOTLINE_PATTERN)
+    hotline = extract_information(target, no_accent_target, HOTLINE_PATTERN, direct=True)
     lst_hotline = extract_and_normalize_phone_numbers(hotline)
     profile_info["hotline"] = lst_hotline
 
-    employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN)
+    employee_name = extract_information(target, no_accent_target, EMPLOYEE_NAME_PATTERN, direct=True)
     employee_name = extract_name(employee_name)
     employee_name = normalize_name_by_weight(
         employee_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
     )
     profile_info["employee_name"] = employee_name
 
-    customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN)
+    customer_name = extract_information(target, no_accent_target, CUSTOMER_NAME_PATTERN, direct=True)
     customer_name = extract_name(customer_name)
     customer_name = normalize_name_by_weight(
         customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT
@@ -74,13 +74,13 @@ def handle_general_information(general_information):
     profile_info["customer_name"] = customer_name
 
     customer_phone = extract_information(
-        target, no_accent_target, CUSTOMER_PHONE_PATTERN
+        target, no_accent_target, CUSTOMER_PHONE_PATTERN, direct=True
     )
     lst_customer_phone = extract_and_normalize_phone_numbers(customer_phone)
     if len(lst_customer_phone) > 0:
         profile_info["customer_phone"] = lst_customer_phone[0]
 
-    address = extract_information(target, no_accent_target, ADDRESS_PATTERN)
+    address = extract_information(target, no_accent_target, ADDRESS_PATTERN, direct=True)
     address = extract_address(address)
     address = parse_address(
         address,
@@ -91,11 +91,11 @@ def handle_general_information(general_information):
     )
     profile_info["address"] = address
 
-    region = extract_information(target, no_accent_target, REGION_PATTERN)
+    region = extract_information(target, no_accent_target, REGION_PATTERN, direct=True)
     region = extract_name(region)
     profile_info["region"] = region
 
-    shipping_time = extract_information(target, no_accent_target, SHIPPING_TIME_PATTERN)
+    shipping_time = extract_information(target, no_accent_target, SHIPPING_TIME_PATTERN, direct=True)
     shipping_time = normalize_datetime(shipping_time)
     profile_info["shipping_time"] = shipping_time
 
