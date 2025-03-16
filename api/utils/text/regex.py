@@ -20,10 +20,10 @@ HOTLINE_PATTERN = rf"(?:h[oóòỏõọôốồổỗộơớờởỡợ©]t\s*
 EMPLOYEE_NAME_PATTERN = rf"(?:[mn]h[aáàảãạăắằẳẵặâấầẩẫậ][mn]\s*v[iíìỉĩịîï][eéèẻẽẹêếềểễệ]n\s*b[aáàảãạăắằẳẵặâấầẩẫậ][mn]\s*h[aáàảãạăắằẳẵặâấầẩẫậ][mn][qg]){OPTIONAL_COLON}(.*?)(?:kh[aáàảãạăắằẳẵặâấầẩẫậ]ch\s*h[aáàảãạăắằẳẵặâấầẩẫậ][mn][qg])"
 
 # CUSTOMER_NAME_PATTERN = rf"(?:khach\s*hang){OPTIONAL_COLON}(.*?)(?:s\s*d[t|f])"
-CUSTOMER_NAME_PATTERN = rf"(?:kh[aáàảãạăắằẳẵặâấầẩẫậ]ch\s*h[aáàảãạăắằẳẵặâấầẩẫậ][mn][qg]){OPTIONAL_COLON}(.*?)(?:s*\s*[dđ][t|f])"
+CUSTOMER_NAME_PATTERN = rf"(?:kh[aáàảãạăắằẳẵặâấầẩẫậ]ch\s*h[aáàảãạăắằẳẵặâấầẩẫậ][mn][qg]){OPTIONAL_COLON}(.*?)(?:[sš]*\s*[dđp][t|f])"
 
 # CUSTOMER_PHONE_PATTERN = rf"(?:s\s*d[t|f]){OPTIONAL_COLON}(.*?)(?:dia\s*chi)"
-CUSTOMER_PHONE_PATTERN = rf"(?:s*\s*[dđ][t|f]){OPTIONAL_COLON}(.*?)(?:[dđ][iíìỉĩịîï][aáàảãạăắằẳẵặâấầẩẫậ]\s*ch[iíìỉĩịîï]*)"
+CUSTOMER_PHONE_PATTERN = rf"(?:[sš]*\s*[dđp][t|f]){OPTIONAL_COLON}(.*?)(?:[dđ][iíìỉĩịîï][aáàảãạăắằẳẵặâấầẩẫậ]\s*ch[iíìỉĩịîï]*)"
 
 # ADDRESS_PATTERN = rf"(?:dia\s*chi){OPTIONAL_COLON}(.*?)(?:khu\s*vuc)"
 ADDRESS_PATTERN = rf"(?:[dđ][iíìỉĩịîï][aáàảãạăắằẳẵặâấầẩẫậ]\s*ch[iíìỉĩịîï]*){OPTIONAL_COLON}(.*?)(?:kh[uúùủũụưứừửữự]\s*v[uúùủũụưứừửữự]c)"

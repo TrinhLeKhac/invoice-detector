@@ -2,6 +2,7 @@ import itertools
 import re
 
 from unidecode import unidecode
+import unicodedata
 
 from utils.text.regex import TIME_DATE_PATTERN
 
@@ -103,6 +104,32 @@ def extract_and_normalize_phone_numbers(text):
     return normalized_numbers
 
 
+def remove_consecutive_duplicate_tone_marks(word):
+    """
+    Remove one of two consecutive characters if they have the same base character after removing tone marks.
+
+    Args:
+        word (str): Input word with potential consecutive duplicate tone-marked characters.
+
+    Returns:
+        str: The corrected word.
+    """
+    def remove_tone(char):
+        """Convert a Vietnamese character to its base form (without diacritics)."""
+        return unicodedata.normalize('NFD', char).encode('ascii', 'ignore').decode('utf-8') if char.isalpha() else char
+
+    result = []
+    prev_base = ""
+
+    for char in word:
+        base_char = remove_tone(char).lower()  # Lấy ký tự không dấu
+        if base_char != prev_base:  # Nếu khác ký tự trước thì giữ lại
+            result.append(char)
+        prev_base = base_char  # Cập nhật ký tự trước đó
+
+    return "".join(result)
+
+
 def extract_name(text):
     """
     Extracts and cleans a name from a given text by removing unwanted characters.
@@ -123,6 +150,10 @@ def extract_name(text):
 
     # Normalize spaces (convert multiple spaces to a single space)
     cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
+
+    # Remove one of two consecutive characters if they have the same base character after removing tone marks
+    # Eg. LÊE THUUUU NGÂÂN => LÊ THU NGÂN
+    cleaned_text = remove_consecutive_duplicate_tone_marks(cleaned_text)
 
     return cleaned_text
 
@@ -179,14 +210,13 @@ def normalize_name_by_weight(
         print("Valid words: ", valid_words)
     first, middle, last = "", [], ""
 
-    # **Step 1: Identify the Last Name (Họ)**
+    # **Step 1: Identify the first_name (Họ)**
     # Find exact matches in the first_names dictionary
     found_first_names = [word for word in valid_words if word in first_names]
     if debug:
         print("found_first_names: ", found_first_names)
 
-    # Find potential last names by checking for misspelled versions in first_names
-    # found_first_matches = {find_best_match(word, first_names): word for word in valid_words if word not in found_first_names}
+    # Find potential first_name by checking for misspelled versions in first_name
     found_first_matches = {
         match: word
         for word in valid_words
@@ -196,12 +226,12 @@ def normalize_name_by_weight(
     if debug:
         print("found_first_matches: ", found_first_matches)
 
-    # Combine both exact and corrected last name candidates
+    # Combine both exact and corrected first_name candidates
     all_first_candidates = found_first_names + list(found_first_matches.keys())
     if debug:
         print("all_matches: ", all_first_candidates)
 
-    # Select the last name with the highest priority score
+    # Select the first_name with the highest priority score
     if all_first_candidates:
         first = max(all_first_candidates, key=lambda x: first_names[x])
         if debug:
@@ -209,7 +239,7 @@ def normalize_name_by_weight(
         if first in found_first_names:
             if debug:
                 print("Remove from first_names")
-            valid_words.remove(first)  # Remove the selected last name
+            valid_words.remove(first)  # Remove the selected first_name
         else:
             if debug:
                 print("Remove from first_matches")
@@ -217,8 +247,8 @@ def normalize_name_by_weight(
                 found_first_matches[first]
             )  # Remove the misspelled version
 
-    # **Step 2: Identify the First Name (Tên)**
-    # Find exact matches for first name (including cases where it appears in first_names)
+    # **Step 2: Identify the last_name (Tên)**
+    # Find exact matches for last_name (including cases where it appears in last_name)
     found_last_names = [
         word for word in reversed(valid_words) if word in {**first_names, **last_names}
     ]
@@ -228,9 +258,24 @@ def normalize_name_by_weight(
     # Select the first name with the highest priority
     if found_last_names:
         last = max(found_last_names, key=lambda x: {**first_names, **last_names}.get(x))
+        
+        # 🔹 **Check if a better version exists with correct accents**
+        unaccented_last = unidecode(last).lower()
+        better_last = max(
+            (name for name in last_names if unidecode(name).lower() == unaccented_last),
+            key=lambda x: last_names[x],
+            default=last,
+        )
+        if better_last != last and last_names[better_last] > last_names[last]:
+            last = better_last  # Replace with the correct accented version
+        
         if debug:
             print("Tên: ", last)
-        valid_words.remove(last)
+        
+        # 🔥 ** Remove original word
+        original_last = next((word for word in valid_words if unidecode(word).lower() == unaccented_last), last)
+        if original_last in valid_words:
+            valid_words.remove(original_last)
     else:
         if debug:
             print("Tên else")

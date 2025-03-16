@@ -18,6 +18,9 @@ def processing_image(image, border=5):
 
     # Crop invoice
     cropped = detect_and_crop_invoice(image)
+    if (cropped.shape[0] == 0) or (cropped.shape[1] == 0):
+        print("Warning: Unable to crop the invoice")
+        cropped = image.copy()
 
     # Remove shadow
     non_shadow = remove_shadow(cropped)
@@ -31,11 +34,8 @@ def processing_image(image, border=5):
     # Deskew images
     deskewed = deskew_image(gray)
 
-    # Remove noise
-    denoised = denoise(deskewed, kernel_size=(1, 1), iterations=1, ksize=1)
-
     # Detect table
-    table_roi = detect_table(denoised)  # deskewed | denoised | unfaded
+    table_roi = detect_table(deskewed)  # deskewed | denoised
 
     # Detect cells
     table_cells = detect_cells(table_roi)
@@ -50,7 +50,7 @@ def processing_image(image, border=5):
     table_information = handle_table_information(raw_table_information)
     print(table_information)
 
-    return cropped, denoise, table_roi, table_information
+    return cropped, deskewed, table_roi, table_information
 
     # except Exception as e:
     #     print(f"Error processing image: {e}")
