@@ -133,7 +133,7 @@ def remove_accent(text: str) -> str:
         raise ValueError("The input must be a string")
 
     # Normalize Unicode and remove diacritic marks
-    text = unicodedata.normalize("NFD", text)
+    # text = unicodedata.normalize("NFD", text)
     text = re.sub(r"[\u0300-\u036f]", "", text)
 
     # Replace accented characters with non-accented versions

@@ -108,29 +108,21 @@ def remove_consecutive_duplicate_tone_marks(word):
     """
     Remove one of two consecutive characters if they have the same base character after removing tone marks.
 
-    Args:
-        word (str): Input word with potential consecutive duplicate tone-marked characters.
+    Parameters:
+    - word (str): Input word with potential consecutive duplicate tone-marked characters.
 
     Returns:
-        str: The corrected word.
+    - str: The corrected word with consecutive duplicate tone-marked characters removed.
     """
-
-    def remove_tone(char):
-        """Convert a Vietnamese character to its base form (without diacritics)."""
-        return (
-            unicodedata.normalize("NFD", char).encode("ascii", "ignore").decode("utf-8")
-            if char.isalpha()
-            else char
-        )
-
+    
     result = []
     prev_base = ""
 
     for char in word:
-        base_char = remove_tone(char).lower()  # Lấy ký tự không dấu
-        if base_char != prev_base:  # Nếu khác ký tự trước thì giữ lại
+        base_char = unidecode(char).lower()  # Get the character without diacritics
+        if base_char != prev_base:  # Keep the character if different from the previous one
             result.append(char)
-        prev_base = base_char  # Cập nhật ký tự trước đó
+        prev_base = base_char  # Update previous character
 
     return "".join(result)
 
@@ -174,40 +166,45 @@ def normalize_product_name(product_name: str, tokens: dict) -> str:
     Returns:
     - str: The normalized product name with the most relevant tokens.
     """
-
-    # Function to remove diacritics from text
-    def remove_accents(text):
-        return "".join(
-            c
-            for c in unicodedata.normalize("NFD", text)
-            if unicodedata.category(c) != "Mn"
-        )
-
-    # Create a mapping from non-accented words to the highest-weighted accented tokens
+    
+    def get_best_match(phrase, token_map):
+        phrase_no_accent = unidecode(phrase).lower()
+        return token_map.get(phrase_no_accent, None)
+    
+    # Create a mapping from non-accented phrases to the highest-weighted accented tokens
     token_map = {}
     for token in tokens:
-        token_no_accent = remove_accents(token).lower()
+        token_no_accent = unidecode(token).lower()
         if (
             token_no_accent not in token_map
             or tokens[token] > tokens[token_map[token_no_accent]]
         ):
             token_map[token_no_accent] = token
 
-    # Function to replace words in the input text with the highest-weighted tokens
-    def replace_tokens(text):
-        words = text.split()
-        for i, word in enumerate(words):
-            word_no_accent = remove_accents(word).lower()
-            if word_no_accent in token_map:
-                words[i] = token_map[
-                    word_no_accent
-                ]  # Replace with the best-matching token
-        return " ".join(words)
-
-    # Normalize the product name using the token replacement function
-    normalized_product_name = replace_tokens(product_name)
-
-    return normalized_product_name
+    # Normalize product name by removing consecutive duplicate tone marks
+    product_name = remove_consecutive_duplicate_tone_marks(product_name)
+    words = product_name.split()
+    
+    i = 0
+    while i < len(words):
+        max_match = None
+        max_length = 0
+        
+        # Check all possible n-grams starting at position i
+        for n in range(len(words) - i, 0, -1):
+            phrase = " ".join(words[i:i + n])
+            match = get_best_match(phrase, token_map)
+            if match:
+                max_match = match
+                max_length = n
+                break
+        
+        # Replace words with the best match if found
+        if max_match:
+            words[i:i + max_length] = [max_match]
+        i += 1
+    
+    return " ".join(words)
 
 
 def normalize_name_by_weight(

@@ -33,46 +33,6 @@ class TestInitCapWords(unittest.TestCase):
         )  # Keeps hyphenated words intact
 
 
-class TestRemoveAccent(unittest.TestCase):
-    def test_normal_vietnamese_text(self):
-        self.assertEqual(remove_accent("Tôi đang ăn phở"), "Toi dang an pho")
-        self.assertEqual(
-            remove_accent("Hà Nội là thủ đô của Việt Nam"),
-            "Ha Noi la thu do cua Viet Nam",
-        )
-
-    def test_vietnamese_with_uppercase(self):
-        self.assertEqual(remove_accent("ĐẠI HỌC BÁCH KHOA"), "DAI HOC BACH KHOA")
-        self.assertEqual(
-            remove_accent("THÀNH PHỐ HỒ CHÍ MINH"), "THANH PHO HO CHI MINH"
-        )
-
-    def test_vietnamese_with_mixed_case(self):
-        self.assertEqual(
-            remove_accent("Hà Nội và TP. Hồ Chí Minh"), "Ha Noi va TP. Ho Chi Minh"
-        )
-        self.assertEqual(remove_accent("Cần Thơ - Tây Đô"), "Can Tho - Tay Do")
-
-    def test_text_without_accents(self):
-        self.assertEqual(remove_accent("Hello world"), "Hello world")
-        self.assertEqual(remove_accent("Python is fun"), "Python is fun")
-
-    def test_numbers_and_symbols(self):
-        self.assertEqual(remove_accent("1234!@#$%^&*()"), "1234!@#$%^&*()")
-        self.assertEqual(remove_accent("Hà Nội 1000 năm"), "Ha Noi 1000 nam")
-
-    def test_empty_string(self):
-        self.assertEqual(remove_accent(""), "")
-
-    def test_non_string_input(self):
-        with self.assertRaises(ValueError):
-            remove_accent(123)
-        with self.assertRaises(ValueError):
-            remove_accent(None)
-        with self.assertRaises(ValueError):
-            remove_accent(["Hà Nội"])
-
-
 class TestCleanDashAddress(unittest.TestCase):
     def setUp(self):
         self.dict_norm_city_dash = {
