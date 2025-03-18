@@ -13,8 +13,9 @@ from utils.address.regex import SPECIAL_ENDING
 from utils.text.helper import (clean_text_before_unidecode, extract_address,
                                extract_and_normalize_phone_numbers,
                                extract_information, extract_name,
-                               normalize_datetime, normalize_product_name, normalize_name_by_weight,
-                               normalize_number, validate_and_fill_amounts)
+                               normalize_datetime, normalize_name_by_weight,
+                               normalize_number, normalize_product_name,
+                               validate_and_fill_amounts)
 from utils.text.regex import (ADDRESS_PATTERN, CREATED_TIME_PATTERN,
                               CUSTOMER_NAME_PATTERN, CUSTOMER_PHONE_PATTERN,
                               DISCOUNT_PATTERN, EMPLOYEE_NAME_PATTERN,
@@ -182,7 +183,7 @@ def handle_table_information(raw_table_information):
 
             if normalized_column in ["quantity", "unit_price", "total_price"]:
                 value = normalize_number(value)
-            
+
             if normalized_column in ["product_name"]:
                 value = normalize_product_name(value, PRODUCT_TOKENS)
 

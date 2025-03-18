@@ -164,28 +164,51 @@ def extract_name(text):
 
 
 def normalize_product_name(product_name: str, tokens: dict) -> str:
-    def remove_accents(text):
-        return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+    """
+    Normalize a product name by replacing words with the highest-weighted tokens.
 
-    # Tạo một danh sách ánh xạ từ không dấu sang token có dấu có trọng số cao nhất
+    Parameters:
+    - product_name (str): The input product name (which may contain words with or without diacritics).
+    - tokens (dict): A dictionary where keys are token words (with diacritics) and values are their respective weights.
+
+    Returns:
+    - str: The normalized product name with the most relevant tokens.
+    """
+
+    # Function to remove diacritics from text
+    def remove_accents(text):
+        return "".join(
+            c
+            for c in unicodedata.normalize("NFD", text)
+            if unicodedata.category(c) != "Mn"
+        )
+
+    # Create a mapping from non-accented words to the highest-weighted accented tokens
     token_map = {}
     for token in tokens:
         token_no_accent = remove_accents(token).lower()
-        if token_no_accent not in token_map or tokens[token] > tokens[token_map[token_no_accent]]:
+        if (
+            token_no_accent not in token_map
+            or tokens[token] > tokens[token_map[token_no_accent]]
+        ):
             token_map[token_no_accent] = token
 
-    # Hàm thay thế từ trong đoạn văn bản đầu vào
+    # Function to replace words in the input text with the highest-weighted tokens
     def replace_tokens(text):
         words = text.split()
         for i, word in enumerate(words):
             word_no_accent = remove_accents(word).lower()
             if word_no_accent in token_map:
-                words[i] = token_map[word_no_accent]
-        return ' '.join(words)
+                words[i] = token_map[
+                    word_no_accent
+                ]  # Replace with the best-matching token
+        return " ".join(words)
 
+    # Normalize the product name using the token replacement function
     normalized_product_name = replace_tokens(product_name)
-    
+
     return normalized_product_name
+
 
 def normalize_name_by_weight(
     name: str, first_names: dict, middle_names: dict, last_names: dict, debug=False
