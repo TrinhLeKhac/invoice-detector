@@ -1,5 +1,7 @@
 import os
+
 import cv2
+
 from utils.image.helper import detect_and_crop_invoice
 
 
@@ -9,7 +11,11 @@ def crop_all_images(input_dir, output_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     # Get list of all image files
-    image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    image_files = [
+        f
+        for f in os.listdir(input_dir)
+        if f.lower().endswith((".png", ".jpg", ".jpeg"))
+    ]
 
     for image_name in image_files:
         image_path = os.path.join(input_dir, image_name)
@@ -32,7 +38,7 @@ def crop_all_images(input_dir, output_dir):
         except:
             print("Something wrong")
 
-    
+
 if __name__ == "__main__":
     input_dir = "test/images"
     output_dir = "test/cropped"

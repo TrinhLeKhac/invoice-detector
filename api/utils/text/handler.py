@@ -5,6 +5,7 @@ from unidecode import unidecode
 from data.district import DISTRICT_DICTIONARY
 from data.name import (FIRST_NAMES_DICT, FIRST_NAMES_SET, LAST_NAMES_DICT,
                        LAST_NAMES_SET, MIDDLE_NAMES_DICT, MIDDLE_NAMES_SET)
+from data.product_token import PRODUCT_TOKENS
 from data.province import PROVINCE_DICTIONARY
 from data.ward import WARD_DICTIONARY
 from utils.address.parser import parse_address
@@ -12,7 +13,7 @@ from utils.address.regex import SPECIAL_ENDING
 from utils.text.helper import (clean_text_before_unidecode, extract_address,
                                extract_and_normalize_phone_numbers,
                                extract_information, extract_name,
-                               normalize_datetime, normalize_name_by_weight,
+                               normalize_datetime, normalize_product_name, normalize_name_by_weight,
                                normalize_number, validate_and_fill_amounts)
 from utils.text.regex import (ADDRESS_PATTERN, CREATED_TIME_PATTERN,
                               CUSTOMER_NAME_PATTERN, CUSTOMER_PHONE_PATTERN,
@@ -181,6 +182,9 @@ def handle_table_information(raw_table_information):
 
             if normalized_column in ["quantity", "unit_price", "total_price"]:
                 value = normalize_number(value)
+            
+            if normalized_column in ["product_name"]:
+                value = normalize_product_name(value, PRODUCT_TOKENS)
 
             if normalized_column in [
                 "product_name",

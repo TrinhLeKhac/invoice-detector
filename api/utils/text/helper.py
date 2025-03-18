@@ -163,6 +163,30 @@ def extract_name(text):
     return cleaned_text
 
 
+def normalize_product_name(product_name: str, tokens: dict) -> str:
+    def remove_accents(text):
+        return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+
+    # Tạo một danh sách ánh xạ từ không dấu sang token có dấu có trọng số cao nhất
+    token_map = {}
+    for token in tokens:
+        token_no_accent = remove_accents(token).lower()
+        if token_no_accent not in token_map or tokens[token] > tokens[token_map[token_no_accent]]:
+            token_map[token_no_accent] = token
+
+    # Hàm thay thế từ trong đoạn văn bản đầu vào
+    def replace_tokens(text):
+        words = text.split()
+        for i, word in enumerate(words):
+            word_no_accent = remove_accents(word).lower()
+            if word_no_accent in token_map:
+                words[i] = token_map[word_no_accent]
+        return ' '.join(words)
+
+    normalized_product_name = replace_tokens(product_name)
+    
+    return normalized_product_name
+
 def normalize_name_by_weight(
     name: str, first_names: dict, middle_names: dict, last_names: dict, debug=False
 ) -> str:
