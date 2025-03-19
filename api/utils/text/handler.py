@@ -5,7 +5,7 @@ from unidecode import unidecode
 from data.district import DISTRICT_DICTIONARY
 from data.name import (FIRST_NAMES_DICT, FIRST_NAMES_SET, LAST_NAMES_DICT,
                        LAST_NAMES_SET, MIDDLE_NAMES_DICT, MIDDLE_NAMES_SET)
-from data.product_token import PRODUCT_TOKENS
+from data.product_token_shop import PRODUCT_TOKENS
 from data.province import PROVINCE_DICTIONARY
 from data.ward import WARD_DICTIONARY
 from utils.address.parser import parse_address

@@ -114,13 +114,15 @@ def remove_consecutive_duplicate_tone_marks(word):
     Returns:
     - str: The corrected word with consecutive duplicate tone-marked characters removed.
     """
-    
+
     result = []
     prev_base = ""
 
     for char in word:
         base_char = unidecode(char).lower()  # Get the character without diacritics
-        if base_char != prev_base:  # Keep the character if different from the previous one
+        if (
+            base_char != prev_base
+        ):  # Keep the character if different from the previous one
             result.append(char)
         prev_base = base_char  # Update previous character
 
@@ -128,7 +130,10 @@ def remove_consecutive_duplicate_tone_marks(word):
 
 
 def remove_spaces_in_brackets(text):
-    return re.sub(r'(\(|\{|\[)\s+|\s+(\)|\}|\])', lambda m: m.group(1) or m.group(2), text)
+    return re.sub(
+        r"(\(|\{|\[)\s+|\s+(\)|\}|\])", lambda m: m.group(1) or m.group(2), text
+    )
+
 
 def extract_name(text):
     """
@@ -172,26 +177,30 @@ def normalize_product_name(product_name: str, tokens: dict) -> str:
     Returns:
     - str: The normalized product name with the most relevant tokens.
     """
-    
+
     def get_best_match(phrase, token_map):
         """
         Find the best matching token from the token_map for a given phrase.
-        
+
         Parameters:
         - phrase (str): The input phrase to search for.
         - token_map (dict): A dictionary mapping non-accented phrases to their best matching accented tokens.
-        
+
         Returns:
         - str or None: The best matching token if found, otherwise None.
         """
         phrase_no_accent = unidecode(phrase).lower()
         return token_map.get(phrase_no_accent, None)
-    
+
     # Create a mapping from non-accented phrases to the highest-weighted accented tokens
     token_map = {}
     for token in tokens:
         token_no_accent = unidecode(token).lower()
-        if token_no_accent not in token_map or len(token.split()) > len(token_map[token_no_accent].split()) or tokens[token] > tokens[token_map[token_no_accent]]:
+        if (
+            token_no_accent not in token_map
+            or len(token.split()) > len(token_map[token_no_accent].split())
+            or tokens[token] > tokens[token_map[token_no_accent]]
+        ):
             token_map[token_no_accent] = token
 
     # Remove | when detecting misrecognized characters from table borders
@@ -200,25 +209,27 @@ def normalize_product_name(product_name: str, tokens: dict) -> str:
 
     # Normalize product name by removing consecutive duplicate tone marks
     product_name = remove_consecutive_duplicate_tone_marks(product_name)
-    
+
     # Preserve special characters like parentheses in the final output
-    words = re.split(r'(\s+|[()\[\]{}])', product_name)  # Split while keeping delimiters
-    words = [w for w in words if w != ' ']
-    words = [w for w in words if w != '']
+    words = re.split(
+        r"(\s+|[()\[\]{}])", product_name
+    )  # Split while keeping delimiters
+    words = [w for w in words if w != " "]
+    words = [w for w in words if w != ""]
     print("Original words: ", words)
-    
+
     i = 0
     while i < len(words):
         if words[i].strip() in "()[]{}":
             i += 1
             continue
-        
+
         max_match = None
         max_length = 0
-        
+
         # Check all possible n-grams starting at position i
         for n in range(len(words) - i, 0, -1):
-            phrase = " ".join([re.sub(r'[()\[\]{}]', '', w) for w in words[i:i + n]])
+            phrase = " ".join([re.sub(r"[()\[\]{}]", "", w) for w in words[i : i + n]])
             print("Phrase: ", phrase)
             match = get_best_match(phrase, token_map)
             if match:
@@ -226,16 +237,16 @@ def normalize_product_name(product_name: str, tokens: dict) -> str:
                 max_length = n
                 print("Max match: ", max_match)
                 break
-        
+
         # Replace words with the best match if found
         if max_match:
             if words[i][0] in "()[]{}":  # Preserve parentheses around replaced word
-                words[i:i + max_length] = [words[i][0] + max_match + words[i][-1]]
+                words[i : i + max_length] = [words[i][0] + max_match + words[i][-1]]
             else:
-                words[i:i + max_length] = [max_match]
+                words[i : i + max_length] = [max_match]
             print("Modified works: ", words)
         i += max_length if max_match else 1
-    
+
     normalized_product_name = remove_spaces_in_brackets(" ".join(words).title())
     return normalized_product_name
 
