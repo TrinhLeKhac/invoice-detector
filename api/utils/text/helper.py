@@ -359,7 +359,7 @@ def normalize_name_by_weight(
             key=lambda x: last_names[x],
             default=last,
         )
-        if better_last != last and last_names[better_last] > last_names[last]:
+        if better_last != last and last_names.get(better_last, 1) > last_names.get(last, 1):
             last = better_last  # Replace with the correct accented version
 
         if debug:

@@ -322,7 +322,7 @@ PRODUCT_TOKENS = {
     "D": 2,
     "Thảo": 2,
     "Ginko": 2,
-    "Cai": 2,
+    "Cái": 2,
     "Lót": 2,
     "Versace": 2,
     "Xanh": 2,

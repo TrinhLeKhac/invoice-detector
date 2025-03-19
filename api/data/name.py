@@ -503,7 +503,7 @@ LAST_NAMES_DICT = {
     "Nghiệp": 277,
     "Sa": 277,
     "Nữ": 277,
-    "Hạ": 276,
+    "Hà": 276,
     "Sĩ": 276,
     "Chánh": 276,
     "Nghiêm": 275,
@@ -1351,6 +1351,7 @@ LAST_NAMES_DICT = {
     "Đĩnh": 26,
     "Kiển": 26,
     "Lít": 26,
+    "Hạ": 26,
 }
 
 LAST_NAMES_LIST = list(LAST_NAMES_DICT.keys())
