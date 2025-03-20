@@ -1,3 +1,5 @@
+import math
+
 import cv2
 import numpy as np
 from skimage.filters import threshold_sauvola
@@ -36,8 +38,95 @@ def invert(image):
     return inverted_image
 
 
-def detect_and_crop_invoice(image, threshold=30):
+def angle_between_points(p1, p2):
+    """
+    Calculate the angle between two points relative to the horizontal axis.
+    If the angle is greater than 45 degrees, it is considered vertical, and the function returns (90 - angle).
+    Otherwise, it is considered horizontal.
 
+    Args:
+        p1 (tuple): First point (x, y)
+        p2 (tuple): Second point (x, y)
+
+    Returns:
+        tuple: (corrected angle, direction ('horizontal' or 'vertical'))
+    """
+    delta_x = p2[0] - p1[0]
+    delta_y = p2[1] - p1[1]
+    angle = abs(math.degrees(math.atan2(delta_y, delta_x)))
+    angle = min(180 - angle, angle)
+    if angle > 45:
+        return 90 - angle, "vertical"
+    else:
+        return angle, "horizontal"
+
+
+def correct_polygon(approx_polygon, limit_angle=5):
+    """
+    Adjusts the polygon by correcting points that form angles greater than a given threshold.
+
+    Args:
+        approx_polygon (numpy array): Approximate polygon points.
+        limit_angle (int, optional): The angle threshold above which corrections are applied. Defaults to 5.
+
+    Returns:
+        numpy array: Corrected polygon points.
+    """
+    corrected_polygon = []
+    num_points = len(approx_polygon)
+
+    for i in range(num_points):
+        p1 = approx_polygon[i][0]
+        p2 = approx_polygon[(i + 1) % num_points][0]
+
+        angle, direction = angle_between_points(p1, p2)
+
+        if angle > limit_angle:
+            print(
+                f"Detecting p1({p1[0]}, {p1[1]}) and p2({p2[0]}, {p2[1]}) have angle {angle}"
+            )
+            mid_x = (p1[0] + p2[0]) // 2
+            mid_y = (p1[1] + p2[1]) // 2
+
+            alpha = angle / 2  # Adjust half of the deviation angle
+            rad = math.radians(alpha)
+
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+
+            if direction == "horizontal":
+                new_x1 = int(mid_x - (dx / 2) * math.cos(rad))
+                new_y1 = int(mid_y - (dy / 2) * math.sin(rad))
+                new_x2 = int(mid_x + (dx / 2) * math.cos(rad))
+                new_y2 = int(mid_y + (dy / 2) * math.sin(rad))
+            else:  # vertical
+                new_x1 = int(mid_x - (dx / 2) * math.sin(rad))
+                new_y1 = int(mid_y - (dy / 2) * math.cos(rad))
+                new_x2 = int(mid_x + (dx / 2) * math.sin(rad))
+                new_y2 = int(mid_y + (dy / 2) * math.cos(rad))
+
+            corrected_polygon.append([[new_x1, new_y1]])
+            corrected_polygon.append([[new_x2, new_y2]])
+        else:
+            corrected_polygon.append([p1])
+
+    return np.array(corrected_polygon, dtype=np.int32)
+
+
+def detect_and_crop_invoice(image, threshold=10, eps=0.05, correct=True, limit_angle=5):
+    """
+    Detects and extracts the invoice from an image by identifying contours and applying corrections.
+
+    Args:
+        image (numpy array): Input image.
+        threshold (int, optional): Padding threshold for cropping. Defaults to 10.
+        eps (float, optional): Approximation accuracy for contour polygon. Defaults to 0.05.
+        correct (bool, optional): Whether to apply polygon correction. Defaults to True.
+        limit_angle (int, optional): Minimum angle to trigger correction. Defaults to 5.
+
+    Returns:
+        numpy array: Cropped invoice image.
+    """
     # Convert to HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
@@ -58,13 +147,55 @@ def detect_and_crop_invoice(image, threshold=30):
     # Find largest contour (assumed to be the invoice)
     largest_contour = max(contours, key=cv2.contourArea)
 
-    # If not a quadrilateral, fallback to bounding box cropping
-    x, y, w, h = cv2.boundingRect(largest_contour)
+    # Approximate the contour to a polygon with multiple sides
+    epsilon = eps * cv2.arcLength(largest_contour, True)
+    approx_polygon = cv2.approxPolyDP(largest_contour, epsilon, True)
+
+    corrected_polygon = approx_polygon
+    if correct:
+        corrected_polygon = correct_polygon(approx_polygon, limit_angle=limit_angle)
+
+    # Create a mask for the polygon
+    mask_poly = np.zeros_like(mask)
+    cv2.fillPoly(mask_poly, [corrected_polygon], 255)
+
+    removed_background_image = cv2.bitwise_and(image, image, mask=mask_poly)
+
+    # Crop using bounding rectangle box
+    x, y, w, h = cv2.boundingRect(corrected_polygon)
 
     # Add a vertical threshold to avoid the issue of tape covering the text
-    cropped_image = image[y - threshold : y + h + threshold, x : x + w]
+    cropped_image = removed_background_image[
+        y - threshold : y + h + threshold, x : x + w
+    ]
 
     return cropped_image
+
+
+def remove_tape(image):
+    """
+    Detect the boundary of the receipt and remove yellow tape around it.
+    """
+    tmp_image = image.copy()
+    hsv = cv2.cvtColor(tmp_image, cv2.COLOR_BGR2HSV)
+
+    # Define yellow color range
+    lower_yellow = np.array([10, 110, 50])
+    upper_yellow = np.array([35, 255, 255])
+
+    # Create mask for yellow regions
+    mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+
+    # Find contours
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        cv2.rectangle(
+            tmp_image, (x, y), (x + w, y + h), (255, 255, 255), -1
+        )  # Fill with white
+
+    return tmp_image
 
 
 def enhance_contrast(image, clip_limit=2.0, tile_grid_size=(8, 8)):
@@ -259,14 +390,15 @@ def rotate_image(image, angle):
     return rotated_image
 
 
-def deskew_image(image):
+def deskew_image(image, debug=True):
     """
     Detect and correct the skew of an image.
     Ensures that the rotation does not flip the image sideways.
     """
 
     angle = get_rotation_angle(image)
-    print(angle)
+    if debug:
+        print("Deskew angle: ", angle)
     if abs(angle) < 0.1:  # If angle is too small, no rotation is needed
         return image
 

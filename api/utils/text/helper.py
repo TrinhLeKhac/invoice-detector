@@ -166,7 +166,7 @@ def extract_name(text):
     return cleaned_text
 
 
-def normalize_product_name(product_name: str, tokens: dict) -> str:
+def normalize_product_name(product_name: str, tokens: dict, debug=False) -> str:
     """
     Normalize a product name by replacing words with the highest-weighted tokens.
 
@@ -216,7 +216,8 @@ def normalize_product_name(product_name: str, tokens: dict) -> str:
     )  # Split while keeping delimiters
     words = [w for w in words if w != " "]
     words = [w for w in words if w != ""]
-    print("Original words: ", words)
+    if debug:
+        print("Original words: ", words)
 
     i = 0
     while i < len(words):
@@ -230,12 +231,14 @@ def normalize_product_name(product_name: str, tokens: dict) -> str:
         # Check all possible n-grams starting at position i
         for n in range(len(words) - i, 0, -1):
             phrase = " ".join([re.sub(r"[()\[\]{}]", "", w) for w in words[i : i + n]])
-            print("Phrase: ", phrase)
+            if debug:
+                print("Phrase: ", phrase)
             match = get_best_match(phrase, token_map)
             if match:
                 max_match = match
                 max_length = n
-                print("Max match: ", max_match)
+                if debug:
+                    print("Max match: ", max_match)
                 break
 
         # Replace words with the best match if found
@@ -244,7 +247,8 @@ def normalize_product_name(product_name: str, tokens: dict) -> str:
                 words[i : i + max_length] = [words[i][0] + max_match + words[i][-1]]
             else:
                 words[i : i + max_length] = [max_match]
-            print("Modified works: ", words)
+            if debug:
+                print("Modified works: ", words)
         i += max_length if max_match else 1
 
     normalized_product_name = remove_spaces_in_brackets(" ".join(words).title())
@@ -359,7 +363,9 @@ def normalize_name_by_weight(
             key=lambda x: last_names[x],
             default=last,
         )
-        if better_last != last and last_names.get(better_last, 1) > last_names.get(last, 1):
+        if better_last != last and last_names.get(better_last, 1) > last_names.get(
+            last, 1
+        ):
             last = better_last  # Replace with the correct accented version
 
         if debug:

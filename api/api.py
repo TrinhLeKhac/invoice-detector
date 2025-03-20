@@ -16,7 +16,7 @@ def predict():
     # print(base64_encoded_str)
 
     image = convert_from_base64(image_encoded_str)
-    print(image.shape)
+    # print(image.shape)
 
     cropped, deskewed, table_roi, table_information = processing_image(image)
 

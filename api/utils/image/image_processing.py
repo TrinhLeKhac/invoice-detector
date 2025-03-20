@@ -5,8 +5,9 @@ import numpy as np
 from pytesseract import pytesseract
 
 from utils.image.helper import (denoise, deskew_image, detect_and_crop_invoice,
-                                enhance_contrast, grayscale, lighten_text,
-                                remove_shadow, thicken_text)
+                                enhance_contrast, grayscale, invert,
+                                lighten_text, remove_shadow, remove_tape,
+                                thicken_text)
 from utils.image.ocr_parser import parse_table_information
 from utils.table.detector import detect_cells, detect_table
 from utils.text.handler import handle_table_information
@@ -17,7 +18,8 @@ def processing_image(image, border=5):
     # try:
 
     # Crop invoice
-    cropped = detect_and_crop_invoice(image)
+    cropped = detect_and_crop_invoice(image, correct=False)
+
     if (cropped.shape[0] == 0) or (cropped.shape[1] == 0):
         print("Warning: Unable to crop the invoice")
         cropped = image.copy()
@@ -30,16 +32,17 @@ def processing_image(image, border=5):
 
     # Convert to grayscale
     gray = grayscale(non_shadow)
+    # gray = invert(gray)
 
     # Deskew images
-    deskewed = deskew_image(gray)
+    deskewed = deskew_image(gray, debug=True)
 
     # Detect table
     table_roi = detect_table(deskewed)
 
     # Detect cells
     table_cells = detect_cells(table_roi)
-    print(table_cells)
+    # print(table_cells)
 
     # Extract information
     raw_table_information = parse_table_information(
@@ -47,7 +50,7 @@ def processing_image(image, border=5):
     )
     print(raw_table_information)
 
-    table_information = handle_table_information(raw_table_information)
+    table_information = handle_table_information(raw_table_information, debug=False)
     print(table_information)
 
     return cropped, deskewed, table_roi, table_information

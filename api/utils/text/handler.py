@@ -87,7 +87,7 @@ def handle_general_information(general_information):
     )
     customer_name = extract_name(customer_name)
     customer_name = normalize_name_by_weight(
-        customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT, debug=True
+        customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT, debug=False
     )
     profile_info["customer_name"] = customer_name
 
@@ -152,7 +152,7 @@ def handle_general_information(general_information):
     return profile_info, order_summary
 
 
-def handle_table_information(raw_table_information):
+def handle_table_information(raw_table_information, debug=True):
 
     def normalize_column_name(column_name):
         """Normalize column names using regex matching"""
@@ -185,7 +185,7 @@ def handle_table_information(raw_table_information):
                 value = normalize_number(value)
 
             if normalized_column in ["product_name"]:
-                value = normalize_product_name(value, PRODUCT_TOKENS)
+                value = normalize_product_name(value, PRODUCT_TOKENS, debug=debug)
 
             if normalized_column in [
                 "product_name",
