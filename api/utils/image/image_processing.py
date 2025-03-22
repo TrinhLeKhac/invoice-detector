@@ -75,7 +75,7 @@ def pipeline_extract_table(image):
 
     return table_roi
 
-def pipeline_extract_information(table_roi, border=5):
+def pipeline_extract_information(table_roi, border=3):
     # Detect cells
     table_cells = detect_cells(table_roi)
 

@@ -252,6 +252,7 @@ def normalize_product_name(product_name: str, tokens: dict, debug=False) -> str:
         i += max_length if max_match else 1
 
     normalized_product_name = remove_spaces_in_brackets(" ".join(words).title())
+    normalized_product_name = re.sub(r"[.,]", "", normalized_product_name)
     return normalized_product_name
 
 

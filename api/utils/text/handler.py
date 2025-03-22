@@ -207,6 +207,9 @@ def handle_table_information(raw_table_information, debug=True):
             normalized_row["quantity"] = 1
             normalized_row["unit_price"] = normalized_row["total_price"]
 
+        if normalized_row["quantity"]  < 0:
+            normalized_row["quantity"] = -normalized_row["quantity"]
+
         # Ensure quantity * unit_price = total_price
         expected_total_price = normalized_row["quantity"] * normalized_row["unit_price"]
 
