@@ -11,6 +11,7 @@ from utils.image.helper import (denoise, deskew_image, detect_and_crop_invoice,
 from utils.image.ocr_parser import parse_table_information
 from utils.table.detector import detect_cells, detect_table
 from utils.text.handler import handle_table_information
+# from utils.table.model_detector import InvoiceTableDetector
 
 
 def processing_image(image, border=5):
@@ -24,15 +25,17 @@ def processing_image(image, border=5):
         print("Warning: Unable to crop the invoice")
         cropped = image.copy()
 
+    # detector = InvoiceTableDetector()
+    # table_image = detector.detect_tables(cropped)
+    # if table_image is not None:
+    #     print("Table detected")
+    #     print(table_image.shape)
+
     # Remove shadow
     non_shadow = remove_shadow(cropped)
 
-    # Enhance contrast
-    # enhanced = enhance_contrast(non_shadow)
-
     # Convert to grayscale
     gray = grayscale(non_shadow)
-    # gray = invert(gray)
 
     # Deskew images
     deskewed = deskew_image(gray, debug=True)
