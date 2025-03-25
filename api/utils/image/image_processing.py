@@ -96,6 +96,18 @@ def processing_image(image, border=5, model=False):
     if (cropped.shape[0] == 0) or (cropped.shape[1] == 0):
         print("Warning: Unable to crop the invoice")
         cropped = image.copy()
+
+    return cropped
+
+
+def processing_image_full(image, border=5, model=False):
+    """Processes an image: converts to grayscale, rotates, binarizes, finds contours, and crops."""
+    # Crop invoice
+    cropped = detect_and_crop_invoice(image, correct=False)
+
+    if (cropped.shape[0] == 0) or (cropped.shape[1] == 0):
+        print("Warning: Unable to crop the invoice")
+        cropped = image.copy()
     
     if model:
         detector = InvoiceTableDetector()

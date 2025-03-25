@@ -148,4 +148,4 @@ def parse_address(
     modified_address = ", ".join(filter(None, address_parts))
     modified_address = re.sub(r"\s+", " ", modified_address).strip()
 
-    return modified_address
+    return address_lv4, founded_ward, founded_district, founded_province, modified_address

@@ -35,6 +35,10 @@ def handle_general_information(general_information):
         "employee_name": "",
         "customer_name": "",
         "customer_phone": "",
+        "address_lv4": "",
+        "commune": "",
+        "district": "",
+        "province": "",
         "address": "",
         "region": "",
         "shipping_time": "",
@@ -102,13 +106,17 @@ def handle_general_information(general_information):
         target, no_accent_target, ADDRESS_PATTERN, direct=True
     )
     address = extract_address(address)
-    address = parse_address(
+    address_lv4, commune, district, province, address = parse_address(
         address,
         PROVINCE_DICTIONARY,
         DISTRICT_DICTIONARY,
         WARD_DICTIONARY,
         SPECIAL_ENDING,
     )
+    profile_info["address_lv4"] = address_lv4
+    profile_info["commune"] = commune
+    profile_info["district"] = district
+    profile_info["province"] = province
     profile_info["address"] = address
 
     region = extract_information(target, no_accent_target, REGION_PATTERN, direct=True)
