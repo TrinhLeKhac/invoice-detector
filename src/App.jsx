@@ -48,7 +48,7 @@ function App() {
 
   const sendImageToAPI = (image) => {
     setLoading(true);
-    fetch('api/invoice_detector', {
+    fetch('api/invoice_detector_demo', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

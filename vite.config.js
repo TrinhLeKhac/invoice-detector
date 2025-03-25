@@ -6,11 +6,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api/invoice_detector': {
-        target: 'http://127.0.0.1:5000', // Backend URL
+      '/api/invoice_detector_demo': {
+        // target: 'http://127.0.0.1:5000', // Backend URL (Flask)
+        target: 'http://0.0.0.0:8000', // Backend URL (FastAPI)
         changeOrigin: true,
         rewrite: (path) =>
-          path.replace(/^\/api\/invoice_detector/, '/api/invoice_detector'),
+          path.replace(/^\/api\/invoice_detector_demo/, '/api/invoice_detector_demo'),
       },
     },
   },
