@@ -1,3 +1,13 @@
+## Cài đặt và chạy ứng dụng
+``` bash
+cd api
+python3.10 -m venv venv
+source ./venv/bin/activate
+pip install --upgrade pip setuptools wheel
+pip install -r ./requirements.txt
+flask run
+```
+
 ## Tài liệu API
 
 ### 1. Mô tả
