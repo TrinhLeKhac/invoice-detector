@@ -1,5 +1,5 @@
 ## Cài đặt và chạy ứng dụng
-Cài đặt python 3.10
+Cài đặt python 3.10  
 Tạo môi trường và cài thư viện
 ``` bash
 cd api
