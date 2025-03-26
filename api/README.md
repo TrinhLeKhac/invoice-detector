@@ -1,5 +1,7 @@
-## Cài đặt và chạy ứng dụng
-Cài đặt python 3.10  
+## 1. Cài đặt và chạy ứng dụng
+
+### 1.1 Cài đặt 
+Cài python 3.10  
 Tạo môi trường và cài thư viện
 ``` bash
 cd api
@@ -7,25 +9,37 @@ python3.10 -m venv venv
 source ./venv/bin/activate
 pip install --upgrade pip setuptools wheel
 pip install -r ./requirements.txt
-flask run
 ```
 
-## Tài liệu API
+### 1.2. Chạy demo quá trình xử lý hoá đơn
+Mở terminal mới, start backend (FastAPI)
+``` bash
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+Mở terminal mới, start Frontend (Vite+React)
+```bash
+npm run dev
+```
 
-### 1. Mô tả
+### 1.3. Check API 
+Mở trang document FastAPI [http://0.0.0.0:8000/docs](http://0.0.0.0:8000/docs)
+
+## 2. Tài liệu API
+
+### 2.1. Mô tả
 API `/api/invoice_detector` được sử dụng để nhận diện thông tin hóa đơn từ hình ảnh được mã hóa dưới dạng Base64 và mã cửa hàng.
 
-### 2. Endpoint
+### 2.2. Endpoint
 Phương thức: POST 
 Endpoint: `/api/invoice_detector`
 
-#### 2.1. Đầu vào (Request Body)
+#### 2.2.1. Đầu vào (Request Body)
 | Tham số  | Kiểu dữ liệu   | Mô tả |
 |------------|--------|-------------|
 | `image`    | string (base64) | Hình ảnh hóa đơn dưới dạng chuỗi Base64 |
 | `shop_code` | string | Mã cửa hàng |
 
-#### 2.2. Đầu ra (Response Body)
+#### 2.2.2. Đầu ra (Response Body)
 | Tham số  | Kiểu dữ liệu   | Mô tả |
 |------------|--------|-------------|
 | `shop_code`    | string | Mã cửa hàng từ request |
@@ -43,8 +57,8 @@ Endpoint: `/api/invoice_detector`
 | `discount`    | float  | Số tiền giảm giá |
 | `monetary` | float | Tổng tiền sau giảm giá |
 
-### 3. Ví dụ
-#### 3.1. Ví dụ Request
+### 2.3. Ví dụ
+#### 2.3.1. Ví dụ Request
 ```json
 {
   "image": "<base64_encoded_image>",
@@ -52,7 +66,7 @@ Endpoint: `/api/invoice_detector`
 }
 ```
 
-#### 3.2. Ví dụ Response
+#### 2.3.2. Ví dụ Response
 ```json
 {
     "shop_code": "SHOP123",
@@ -72,7 +86,7 @@ Endpoint: `/api/invoice_detector`
 }
 ```
 
-## 4. Lưu ý
+## 3. Lưu ý
 - Trang web convert base64 sang image và ngược lại ([https://base64.guru/converter/encode/image](https://base64.guru/converter/encode/image))
 - Đảm bảo image được mã hóa đúng định dạng Base64
 - Kết quả trả về có thể thay đổi tùy theo thông tin hóa đơn được nhận diện
