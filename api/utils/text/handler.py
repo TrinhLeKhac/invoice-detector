@@ -93,6 +93,8 @@ def handle_general_information(general_information):
     customer_name = normalize_name_by_weight(
         customer_name, FIRST_NAMES_DICT, MIDDLE_NAMES_DICT, LAST_NAMES_DICT, debug=False
     )
+    # Remove accent customer_name
+    customer_name = unidecode(customer_name)
     profile_info["customer_name"] = customer_name
 
     customer_phone = extract_information(
