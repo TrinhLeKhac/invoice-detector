@@ -1,13 +1,18 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import httpx
 import logging
+import jwt
+from datetime import datetime, timezone
 
+from config import SERVER_URL, API_CHECKED
 from utils.image.base64 import convert_from_base64, convert_to_base64
 from utils.image.image_processing import processing_image, processing_image_full
 from utils.image.ocr_parser import parse_general_information
 from utils.text.handler import handle_general_information
-from config import SERVER_URL
+from authen import verify_password, generate_token, validate_token
+
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -16,8 +21,11 @@ app = FastAPI()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 # Define request and response schemas
+class LoginModel(BaseModel):
+    username: str 
+    password: str 
+
 class InvoiceRequestDemo(BaseModel):
     image: str
 
@@ -33,7 +41,22 @@ class PhoneResponse(BaseModel):
     address: str 
 
 
-@app.post("/api/info", response_model=PhoneResponse)
+@app.post("/login")
+def login(request_data: LoginModel):
+    """
+    Xác thực người dùng và trả về token nếu thành công.
+    """
+    if not verify_password(request_data.username, request_data.password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    return {
+        "error": False,
+        "message": "Login successful",
+        "data": {"token": generate_token(request_data.username)}
+    }
+
+
+@app.post("/api/info", response_model=PhoneResponse, dependencies=[Depends(validate_token)])
 async def fetch_user_info(request_data: PhoneRequest):
     """
     Call API to retrieve user information based on phone number
@@ -44,12 +67,13 @@ async def fetch_user_info(request_data: PhoneRequest):
         response.raise_for_status()
         return PhoneResponse(**response.json())
     except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            raise HTTPException(status_code=404, detail="Phone number not found")
-        raise HTTPException(status_code=500, detail="Error fetching data")
+        status_code = e.response.status_code
+        detail = "Phone number not found" if status_code == 404 else "Error fetching data"
+        raise HTTPException(status_code=status_code, detail=detail)
     except Exception as e:
         logger.error(f"Error fetching user info: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 
 @app.post("/api/invoice_detector_demo")
@@ -79,7 +103,7 @@ async def predict_demo(data: InvoiceRequestDemo):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.post("/api/invoice_detector")
+@app.post("/api/invoice_detector", dependencies=[Depends(validate_token)])
 async def predict_invoice(data: InvoiceRequest):
     """
     Process invoice image and verify customer information with server data.
@@ -92,17 +116,25 @@ async def predict_invoice(data: InvoiceRequest):
         profile_info, order_summary = handle_general_information(general_information)
         
         # Verify customer information
-        user_info = None
-        try:
-            user_info = await fetch_user_info(PhoneRequest(phone=profile_info["customer_phone"]))
-        except HTTPException:
-            pass
 
-        phone_checked = int(user_info is not None)
-        name_checked = int(user_info and user_info.name == profile_info["customer_name"])
-        address_checked = int(user_info and user_info.address == profile_info["address"])
+        phone_checked = 0
+        name_checked = 0
+        address_checked = 0
+
+        if API_CHECKED:
+            user_info = None
+            try:
+                user_info = await fetch_user_info(PhoneRequest(phone=profile_info["customer_phone"]))
+            except HTTPException:
+                pass
+
+            phone_checked = int(user_info is not None)
+            name_checked = int(user_info is not None and user_info.name == profile_info.get("customer_name", ""))
+            address_checked = int(user_info is not None and user_info.address == profile_info.get("address", ""))
+
 
         return {
+            "shop_code": data.shop_code,
             "name": profile_info.get("customer_name", ""),
             "phone": profile_info.get("customer_phone", ""),
             "address": profile_info.get("address", ""),
