@@ -13,10 +13,11 @@ flask run
 ## Tài liệu API
 
 ### 1. Mô tả
-API `/image` được sử dụng để nhận diện thông tin hóa đơn từ hình ảnh được mã hóa dưới dạng Base64 và mã cửa hàng.
+API `/api/invoice_detector` được sử dụng để nhận diện thông tin hóa đơn từ hình ảnh được mã hóa dưới dạng Base64 và mã cửa hàng.
 
 ### 2. Endpoint
-POST /image
+Phương thức: POST 
+Endpoint: `/api/invoice_detector`
 
 #### 2.1. Đầu vào (Request Body)
 | Tham số  | Kiểu dữ liệu   | Mô tả |
@@ -29,7 +30,7 @@ POST /image
 |------------|--------|-------------|
 | `shop_code`    | string | Mã cửa hàng từ request |
 | `name` | string | Tên khách hàng trên hóa đơn |
-| `phone`    | string) | Số điện thoại khách hàng |
+| `phone`    | string | Số điện thoại khách hàng |
 | `address` | string | Địa chỉ khách hàng|
 | `commune`    | string | Xã/Phường của địa chỉ |
 | `district` | string | Quận/Huyện của địa chỉ |
@@ -72,5 +73,5 @@ POST /image
 ```
 
 ## 4. Lưu ý
-- Đảm bảo image được mã hóa đúng định dạng Base64
+- Đảm bảo image được mã hóa đúng định dạng Base64 (Trang web convert base64 sang image và ngược lại: [https://base64.guru/converter/encode/image](https://base64.guru/converter/encode/image))
 - Kết quả trả về có thể thay đổi tùy theo thông tin hóa đơn được nhận diện
