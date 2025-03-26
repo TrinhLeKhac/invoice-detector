@@ -73,5 +73,6 @@ Endpoint: `/api/invoice_detector`
 ```
 
 ## 4. Lưu ý
-- Đảm bảo image được mã hóa đúng định dạng Base64 (Trang web convert base64 sang image và ngược lại: [https://base64.guru/converter/encode/image](https://base64.guru/converter/encode/image))
+- Trang web convert base64 sang image và ngược lại ([https://base64.guru/converter/encode/image](https://base64.guru/converter/encode/image))
+- Đảm bảo image được mã hóa đúng định dạng Base64
 - Kết quả trả về có thể thay đổi tùy theo thông tin hóa đơn được nhận diện
