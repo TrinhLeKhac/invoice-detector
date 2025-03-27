@@ -49,9 +49,9 @@ Endpoint: `/api/invoice_detector`
 | `commune`    | string | Xã/Phường của địa chỉ |
 | `district` | string | Quận/Huyện của địa chỉ |
 | `province`    | string| Tỉnh/Thành phố của địa chỉ |
-| `phone_checked` | int | Kiểm tra số điện thoại (1: đúng, 0: sai) |
-| `name_checked`    | int | Kiểm tra tên (1: đúng, 0: sai) |
-| `address_checked` | int | Kiểm tra địa chỉ (1: đúng, 0: sai) |
+| `phone_checked` | int | Kiểm tra có số điện thoại trong API hay không(1: có, 0: không) |
+| `name_checked`    | int | Kiểm tra có đúng tên ứng với số điện thoại hay không(1: đúng, 0: sai) |
+| `address_checked` | int | Kiểm tra có đúng địa chỉ ứng với số điện thoại hay không (1: đúng, 0: sai) |
 | `total_quantity`    | int  | Tổng số lượng sản phẩm trên hóa đơn |
 | `total_amount` | float | Tổng tiền trên hóa đơn |
 | `discount`    | float  | Số tiền giảm giá |
@@ -87,6 +87,6 @@ Endpoint: `/api/invoice_detector`
 ```
 
 ## 3. Lưu ý
-- Trang web convert base64 sang image và ngược lại ([https://base64.guru/converter/encode/image](https://base64.guru/converter/encode/image))
+- Trang web convert base64 sang image và ngược lại ([https://base64.guru/converter/encode/image](https://base64.guru/converter/encode/image), [https://www.base64-image.de/](https://www.base64-image.de/))
 - Đảm bảo image được mã hóa đúng định dạng Base64
 - Kết quả trả về có thể thay đổi tùy theo thông tin hóa đơn được nhận diện
