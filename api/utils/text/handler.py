@@ -20,7 +20,7 @@ from utils.text.regex import (ADDRESS_PATTERN, CREATED_TIME_PATTERN,
                               CUSTOMER_NAME_PATTERN, CUSTOMER_PHONE_PATTERN,
                               DISCOUNT_PATTERN, EMPLOYEE_NAME_PATTERN,
                               HOTLINE_PATTERN, MONETARY_PATTERN,
-                              REGION_PATTERN, SHIPPING_TIME_PATTERN,
+                              REGION_PATTERN, SHIPPING_TIME_PATTERN, COD_PATTERN1, COD_PATTERN2,
                               SHOP_NAME_PATTERN, TABLE_COLUMN_MAPPING,
                               TOTAL_AMOUNT_PATTERN, TOTAL_QUANTITY_PATTERN)
 
@@ -45,6 +45,7 @@ def handle_general_information(general_information):
     }
 
     order_summary = {
+        "cod": 0,
         "total_quantity": 0,
         "total_amount": 0,
         "discount": 0,
@@ -130,6 +131,24 @@ def handle_general_information(general_information):
     )
     shipping_time = normalize_datetime(shipping_time)
     profile_info["shipping_time"] = shipping_time
+
+    rg1_matches = re.findall(COD_PATTERN1, target, re.IGNORECASE)
+    rg2_matches = re.findall(COD_PATTERN2, target, re.IGNORECASE)
+    cod = 0
+    for match in rg1_matches:
+        cleaned_match = re.sub(r"[^\d]", "", match)
+        if cleaned_match:
+            cod = int(cleaned_match)
+            if 'k' in match.lower():
+                cod *= 1000
+    if cod == 0:
+        for match in rg2_matches:
+            cleaned_match = re.sub(r"[^\d]", "", match)
+            if cleaned_match:
+                cod = int(cleaned_match)
+                if 'k' in match.lower():
+                    cod *= 1000
+    order_summary["cod"] = cod
 
     total_quantity = extract_information(
         target, no_accent_target, TOTAL_QUANTITY_PATTERN, direct=True

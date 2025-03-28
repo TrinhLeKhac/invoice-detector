@@ -111,7 +111,7 @@ async def predict_invoice_demo(request_data: ImageModel):
 
         general_information = parse_general_information(cropped)
         profile_info, order_summary = handle_general_information(general_information)
-
+        print("COD: ", order_summary.get("cod", 0))
         return {
             "original": convert_to_base64(image),
             "gray": convert_to_base64(cropped),
@@ -184,6 +184,7 @@ async def predict_invoice(request_data: RequestImageModel):
             "phone_checked": phone_checked,
             "name_checked": name_checked,
             "address_checked": address_checked,
+            "cod_monetary": order_summary.get("cod", 0), 
             "total_quantity": order_summary.get("total_quantity", 0),
             "total_amount": order_summary.get("total_amount", 0),
             "discount": order_summary.get("discount", 0),
